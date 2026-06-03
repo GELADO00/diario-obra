@@ -1917,7 +1917,8 @@ async function marcarTodosLidosAvisos(){
   fecharModal('modal-avisos-popup');
   const central = document.getElementById('view-avisos');
   if(central?.style.display!=='none') renderCentralAvisos();
-  try{ await chamarAPI({action:'marcarTodosLidos',destinatario:usuarioAtual.nome}); }catch(e){}
+  const dest=obras.find(o=>o.responsavel&&o.responsavel.toLowerCase()===usuarioAtual.nome.toLowerCase())?.responsavel||usuarioAtual.nome;
+  try{ await chamarAPI({action:'marcarTodosLidos',destinatario:dest}); }catch(e){}
 }
 
 function mostrarPopupAvisos(){
