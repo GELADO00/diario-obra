@@ -136,13 +136,6 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
   .no-print { display: none !important; }
 }
 
-/* SIDEBAR ALWAYS VISIBLE ON DESKTOP */
-@media(min-width:768px){
-  #app{padding-left:260px;}
-  #menu-lateral{left:0!important;transition:none!important;box-shadow:2px 0 20px rgba(0,0,0,.2);}
-  #menu-overlay{display:none!important;}
-  #btn-menu{display:none!important;}
-}
 /* MENU ITEMS */
 .menu-section-label{display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);padding:14px 20px 5px;}
 .menu-item{display:flex;align-items:center;gap:11px;width:calc(100% - 16px);margin:1px 8px;padding:9px 12px;background:none;border:none;border-radius:8px;color:rgba(255,255,255,.6);font-family:'Source Sans 3',sans-serif;font-size:13.5px;font-weight:500;cursor:pointer;text-align:left;transition:background .15s,color .15s;}
@@ -180,41 +173,21 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
 </div>
 
 <!-- MENU LATERAL -->
-<div id="menu-lateral" style="position:fixed;top:0;left:-280px;width:260px;height:100%;background:#1C1917;z-index:1000;transition:left .3s ease;display:flex;flex-direction:column;overflow:hidden">
-  <div style="padding:18px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08)">
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="width:34px;height:34px;background:var(--amber);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:900;color:white;font-size:18px;flex-shrink:0">E</div>
-      <span style="font-size:15px;font-weight:700;color:white;white-space:nowrap">Diário de Obra</span>
+<div id="menu-lateral" style="position:fixed;top:0;left:-240px;width:220px;height:100%;background:#1C1917;z-index:1000;transition:left .3s ease;display:flex;flex-direction:column;overflow:hidden">
+  <div style="padding:16px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08)">
+    <div style="display:flex;align-items:center;gap:9px">
+      <div style="width:30px;height:30px;background:var(--amber);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:900;color:white;font-size:16px;flex-shrink:0">E</div>
+      <span style="font-size:14px;font-weight:700;color:white;white-space:nowrap">Diário de Obra</span>
     </div>
-    <button onclick="toggleMenu()" id="btn-fechar-menu" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:20px;cursor:pointer;padding:4px;line-height:1;display:none">✕</button>
+    <button onclick="toggleMenu()" id="btn-fechar-menu" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer;padding:4px;line-height:1">✕</button>
   </div>
-  <nav style="flex:1;overflow-y:auto;padding:8px 0">
+  <nav style="flex:1;overflow-y:auto;padding:6px 0">
     <span class="menu-section-label">Principal</span>
-    <button onclick="navegarPara('lista','visaogeral')" class="menu-item" id="menu-visaogeral">
+    <button onclick="navegarVisaoGeral()" class="menu-item" id="menu-visaogeral">
       <span class="menu-icon">🏠</span>Visão Geral
-    </button>
-    <button onclick="navegarPara('lista','obras')" class="menu-item" id="menu-obras">
-      <span class="menu-icon">📋</span>Obras
     </button>
     <button onclick="navegarPara('calendario','calendario')" class="menu-item" id="menu-calendario">
       <span class="menu-icon">📅</span>Calendário
-    </button>
-    <button onclick="navegarPara('relatorio','relatorio')" class="menu-item" id="menu-relatorio">
-      <span class="menu-icon">📊</span>Relatórios
-    </button>
-    <div class="menu-divider" style="margin-top:8px"></div>
-    <span class="menu-section-label">Acompanhamento</span>
-    <button onclick="navegarComFiltro('planejamento')" class="menu-item" id="menu-planejamento">
-      <span class="menu-icon">🚩</span>Planejamento
-    </button>
-    <button onclick="navegarComFiltro('andamento')" class="menu-item" id="menu-andamento">
-      <span class="menu-icon">🔄</span>Em Andamento
-    </button>
-    <button onclick="navegarComFiltro('pausada')" class="menu-item" id="menu-pausadas">
-      <span class="menu-icon">⏸</span>Pausadas
-    </button>
-    <button onclick="navegarComFiltro('concluida')" class="menu-item" id="menu-concluidas">
-      <span class="menu-icon">✅</span>Concluídas
     </button>
   </nav>
   <div class="menu-user-wrap">
@@ -550,15 +523,12 @@ import {
 
 // ── NAVEGAÇÃO ──────────────────────────────────────────────────────────────
 function toggleMenu(){
-  if(window.innerWidth >= 768) return;
   const menu = document.getElementById('menu-lateral');
   const overlay = document.getElementById('menu-overlay');
-  const closeBtn = document.getElementById('btn-fechar-menu');
   if(!menu||!overlay) return;
   const aberto = menu.style.left === '0px';
-  menu.style.left = aberto ? '-280px' : '0px';
+  menu.style.left = aberto ? '-240px' : '0px';
   overlay.style.display = aberto ? 'none' : 'block';
-  if(closeBtn) closeBtn.style.display = aberto ? 'none' : 'block';
 }
 
 function navegarPara(v, menuId){
@@ -567,8 +537,24 @@ function navegarPara(v, menuId){
   setTimeout(()=>mostrarView(v), 300);
 }
 
+function navegarVisaoGeral(){
+  setMenuAtivo('visaogeral');
+  toggleMenu();
+  setTimeout(()=>{
+    document.getElementById('busca').value='';
+    document.getElementById('filtro-status').value='';
+    const r=document.getElementById('filtro-resp'); if(r) r.value='';
+    const f=document.getElementById('filtro-fiscal'); if(f) f.value='';
+    const p=document.getElementById('filtro-pend'); if(p) p.value='';
+    const fin=document.getElementById('mostrar-finalizadas'); if(fin) fin.checked=false;
+    const sc=document.getElementById('filtro-sem-coment'); if(sc) sc.checked=false;
+    const sr=document.getElementById('filtro-sem-retorno'); if(sr) sr.checked=false;
+    mostrarView('lista');
+  }, 300);
+}
+
 function setMenuAtivo(id){
-  ['visaogeral','obras','calendario','relatorio','planejamento','andamento','pausadas','concluidas'].forEach(mid=>{
+  ['visaogeral','calendario'].forEach(mid=>{
     const btn = document.getElementById('menu-'+mid);
     if(btn) btn.classList.toggle('active', mid===id);
   });
@@ -1796,7 +1782,7 @@ function imprimirRelatorio(){
 // Expõe as funções chamadas por atributos onclick/onchange no HTML.
 // Necessário porque <script type="module"> tem escopo próprio.
 Object.assign(window, {
-  toggleMenu, navegarPara, mostrarView, setMenuAtivo, navegarComFiltro,
+  toggleMenu, navegarPara, mostrarView, setMenuAtivo, navegarVisaoGeral,
   fazerLogin, logout,
   irLista, irDetalhe,
   renderLista, limparFiltros,
