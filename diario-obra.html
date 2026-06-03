@@ -595,7 +595,7 @@ function setMenuAtivo(id){
 }
 
 function mostrarView(v){
-  ["lista","detalhe","calendario"].forEach(id=>{
+  ["lista","detalhe","calendario","avisos"].forEach(id=>{
     const el = document.getElementById("view-"+id);
     if(el) el.style.display="none";
   });
