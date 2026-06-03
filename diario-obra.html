@@ -577,7 +577,7 @@ function navegarVisaoGeral(){
   setTimeout(()=>{
     document.getElementById('busca').value='';
     document.getElementById('filtro-status').value='';
-    const r=document.getElementById('filtro-resp'); if(r&&!isTecnico()) r.value='';
+    const r=document.getElementById('filtro-resp'); if(r) r.value='';
     const f=document.getElementById('filtro-fiscal'); if(f) f.value='';
     const p=document.getElementById('filtro-pend'); if(p) p.value='';
     const fin=document.getElementById('mostrar-finalizadas'); if(fin) fin.checked=false;
@@ -880,19 +880,17 @@ function popularFiltros(){
   // Técnico sempre vê só suas próprias obras — reaplica após reconstruir as opções
   if(isTecnico()&&usuarioAtual){
     const nome=usuarioAtual.nome;
-    if(!Array.from(fResp.options).some(o=>o.value===nome)) fResp.add(new Option(nome,nome));
-    fResp.value=nome;
-    fResp.disabled=true;
-    fResp.title='Você só pode visualizar suas próprias obras';
-  } else {
-    fResp.disabled=false;
-    fResp.title='';
+    const match=Array.from(fResp.options).find(o=>o.value.toLowerCase()===nome.toLowerCase());
+    if(match){ fResp.value=match.value; }
+    else { fResp.add(new Option(nome,nome)); fResp.value=nome; }
   }
+  fResp.disabled=false;
+  fResp.title='';
 }
 function limparFiltros(){
   document.getElementById("busca").value="";
   document.getElementById("filtro-status").value="";
-  if(!isTecnico()) document.getElementById("filtro-resp").value="";
+  document.getElementById("filtro-resp").value="";
   document.getElementById("filtro-fiscal").value="";
   document.getElementById("filtro-pend").value="";
   if(document.getElementById("filtro-sem-retorno")) document.getElementById("filtro-sem-retorno").checked=false;
@@ -934,7 +932,7 @@ function renderLista(){
     if(!mostrarFin && o.status==='concluida') return false;
     if(q && !o.nome.toLowerCase().includes(q) && !String(o.instrumento||'').toLowerCase().includes(q)) return false;
     if(fStatus && o.status!==fStatus) return false;
-    if(fResp && o.responsavel!==fResp) return false;
+    if(fResp && (o.responsavel||'').toLowerCase()!==fResp.toLowerCase()) return false;
     if(fFisc && o.fiscal!==fFisc) return false;
     if(filtroSemComent && temComentarioQuinzena(o)) return false;
     if(filtroSemRetorno && temRetornoSemanal(o)) return false;
@@ -1836,7 +1834,7 @@ const AVISO_TIPO_CFG = {
 async function loadAvisos(){
   if(isGestor()) return;
   try{
-    const dest = isAdmin() ? '' : usuarioAtual.nome;
+    const dest = isAdmin() ? '' : (obras.find(o=>o.responsavel&&o.responsavel.toLowerCase()===usuarioAtual.nome.toLowerCase())?.responsavel||usuarioAtual.nome);
     const r = await chamarAPI({action:'loadAvisos', destinatario:dest});
     if(r && r.avisos){ avisos=r.avisos; renderBadgeAvisos(); }
   }catch(e){ /* avisos não são críticos */ }
