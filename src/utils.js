@@ -96,7 +96,11 @@ export function isAdmin(usuario) {
 /** @param {{ perfil: string }|null} usuario */
 export function isGestor(usuario) {
   return usuario != null && String(usuario.perfil).toUpperCase() === "GESTOR";
+}
 
+/** @param {{ perfil: string }|null} usuario */
+export function isTecnico(usuario) {
+  return usuario != null && String(usuario.perfil).toUpperCase() === "TECNICO";
 }
 
 /** @param {{ perfil: string }|null} usuario */

@@ -7,6 +7,7 @@ import {
   safeArr,
   isAdmin,
   isGestor,
+  isTecnico,
   podeEditar,
   quinzenaAtual,
   quinzenaLabel,
@@ -240,6 +241,25 @@ describe("isGestor", () => {
   it("returns false for other profiles", () => {
     expect(isGestor({ perfil: "ADM" })).toBe(false);
     expect(isGestor({ perfil: "" })).toBe(false);
+  });
+});
+
+describe("isTecnico", () => {
+  it("returns false for null or undefined", () => {
+    expect(isTecnico(null)).toBe(false);
+    expect(isTecnico(undefined)).toBe(false);
+  });
+
+  it("returns true when perfil is TECNICO (case-insensitive)", () => {
+    expect(isTecnico({ perfil: "TECNICO" })).toBe(true);
+    expect(isTecnico({ perfil: "tecnico" })).toBe(true);
+    expect(isTecnico({ perfil: "Tecnico" })).toBe(true);
+  });
+
+  it("returns false for other profiles", () => {
+    expect(isTecnico({ perfil: "ADM" })).toBe(false);
+    expect(isTecnico({ perfil: "GESTOR" })).toBe(false);
+    expect(isTecnico({ perfil: "" })).toBe(false);
   });
 });
 

@@ -517,7 +517,7 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
 <script type="module">
 import {
   uid, hoje, toInputDate, fmtDate, calcPrazoFinal, diasR, safeArr,
-  isAdmin as _isAdmin, isGestor as _isGestor, podeEditar as _podeEditar,
+  isAdmin as _isAdmin, isGestor as _isGestor, isTecnico as _isTecnico, podeEditar as _podeEditar,
   quinzenaAtual, quinzenaLabel, temComentarioQuinzena, temRetornoSemanal,
 } from './src/utils.js';
 
@@ -543,7 +543,7 @@ function navegarVisaoGeral(){
   setTimeout(()=>{
     document.getElementById('busca').value='';
     document.getElementById('filtro-status').value='';
-    const r=document.getElementById('filtro-resp'); if(r) r.value='';
+    const r=document.getElementById('filtro-resp'); if(r&&!isTecnico()) r.value='';
     const f=document.getElementById('filtro-fiscal'); if(f) f.value='';
     const p=document.getElementById('filtro-pend'); if(p) p.value='';
     const fin=document.getElementById('mostrar-finalizadas'); if(fin) fin.checked=false;
@@ -626,8 +626,9 @@ let usuarioAtual = null; // {nome, perfil}
 
 function getObra(){ return obras.find(o=>o.id===obraAtiva); }
 // Wrappers para manter a assinatura sem argumentos usada no restante do código
-function isAdmin()   { return _isAdmin(usuarioAtual); }
-function isGestor()  { return _isGestor(usuarioAtual); }
+function isAdmin()    { return _isAdmin(usuarioAtual); }
+function isGestor()   { return _isGestor(usuarioAtual); }
+function isTecnico()  { return _isTecnico(usuarioAtual); }
 
 let obraParaFinalizar = null;
 
@@ -840,11 +841,22 @@ function popularFiltros(){
   const fFisc=document.getElementById("filtro-fiscal");
   fResp.innerHTML='<option value="">Todos</option>'+resps.map(r=>`<option value="${r}">${r}</option>`).join('');
   fFisc.innerHTML='<option value="">Todos</option>'+fiscais.map(f=>`<option value="${f}">${f.split(' ').slice(0,2).join(' ')}</option>`).join('');
+  // Técnico sempre vê só suas próprias obras — reaplica após reconstruir as opções
+  if(isTecnico()&&usuarioAtual){
+    const nome=usuarioAtual.nome;
+    if(!Array.from(fResp.options).some(o=>o.value===nome)) fResp.add(new Option(nome,nome));
+    fResp.value=nome;
+    fResp.disabled=true;
+    fResp.title='Você só pode visualizar suas próprias obras';
+  } else {
+    fResp.disabled=false;
+    fResp.title='';
+  }
 }
 function limparFiltros(){
   document.getElementById("busca").value="";
   document.getElementById("filtro-status").value="";
-  document.getElementById("filtro-resp").value="";
+  if(!isTecnico()) document.getElementById("filtro-resp").value="";
   document.getElementById("filtro-fiscal").value="";
   document.getElementById("filtro-pend").value="";
   if(document.getElementById("filtro-sem-retorno")) document.getElementById("filtro-sem-retorno").checked=false;
