@@ -1196,6 +1196,20 @@ function editarObra(id){
 function salvarObra(){
   const nome=document.getElementById("f-nome").value.trim();
   if(!nome){alert("Preencha o nome.");return;}
+
+  const novoStatus=document.getElementById("f-status").value;
+  if(novoStatus==='concluida'){
+    if(!editandoId){
+      alert("⚠️ Não é possível criar uma obra já finalizada. Salve-a primeiro e use o botão Finalizar.");
+      return;
+    }
+    const obraAtual=obras.find(x=>x.id===editandoId);
+    if(!obraAtual?.idTermoRecebimento){
+      fecharModal("modal-obra");
+      finalizarObra(editandoId);
+      return;
+    }
+  }
   const inicio=document.getElementById("f-inicio").value;
   const prazoDias=document.getElementById("f-prazo-dias").value;
   const prazoFinal=calcPrazoFinal(inicio,prazoDias);
