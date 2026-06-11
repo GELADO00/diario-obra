@@ -208,6 +208,9 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
     <button onclick="verCentralAvisos()" class="menu-item" id="menu-avisos">
       <span class="menu-icon">🔔</span>Avisos<span id="menu-avisos-badge" style="display:none;background:#EF4444;color:white;border-radius:8px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px">0</span>
     </button>
+    <button onclick="verRelatorios()" class="menu-item" id="menu-relatorios">
+      <span class="menu-icon">📊</span>Relatórios
+    </button>
   </nav>
   <div class="menu-user-wrap">
     <div class="menu-user-avatar" id="menu-user-avatar">?</div>
@@ -249,6 +252,9 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
   <main>
     <!-- AVISOS -->
     <div id="view-avisos" style="display:none"></div>
+
+    <!-- RELATÓRIOS -->
+    <div id="view-relatorios" style="display:none"></div>
 
     <!-- CALENDÁRIO -->
     <div id="view-calendario" style="display:none;padding:20px">
@@ -337,7 +343,6 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
         </label>
         <div style="display:flex;gap:8px;margin-left:auto">
           <button class="btn btn-ghost" onclick="gerarRelatorio()" style="border-color:var(--gold);color:var(--gold)">📊 Relatório</button>
-          <button class="btn btn-ghost" onclick="abrirRelPersonalizado()" style="border-color:var(--gold);color:var(--gold)">📋 Personalizado</button>
           <button class="btn btn-amber" id="btn-nova-obra" onclick="abrirModal('modal-obra')" style="display:none">+ Nova Obra</button>
         </div>
       </div>
@@ -594,14 +599,14 @@ function navegarVisaoGeral(){
 }
 
 function setMenuAtivo(id){
-  ['visaogeral','calendario','avisos'].forEach(mid=>{
+  ['visaogeral','calendario','avisos','relatorios'].forEach(mid=>{
     const btn = document.getElementById('menu-'+mid);
     if(btn) btn.classList.toggle('active', mid===id);
   });
 }
 
 function mostrarView(v){
-  ["lista","detalhe","calendario","avisos"].forEach(id=>{
+  ["lista","detalhe","calendario","avisos","relatorios"].forEach(id=>{
     const el = document.getElementById("view-"+id);
     if(el) el.style.display="none";
   });
@@ -2021,17 +2026,49 @@ async function enviarAvisoAdm(){
 }
 
 // ── RELATÓRIO PERSONALIZADO ───────────────────────────────────────────────────
-function abrirRelPersonalizado(){
+function verRelatorios(){
+  setMenuAtivo('relatorios');
+  toggleMenu();
+  ['lista','detalhe','calendario','avisos'].forEach(id=>{
+    const el=document.getElementById('view-'+id); if(el) el.style.display='none';
+  });
+  const v=document.getElementById('view-relatorios');
+  if(v){ v.style.display=''; renderViewRelatorios(); }
+}
+
+function renderViewRelatorios(){
   const resps  =[...new Set(obras.map(o=>o.responsavel).filter(Boolean))].sort();
   const fiscais=[...new Set(obras.map(o=>o.fiscal).filter(Boolean))].sort();
   const forns  =[...new Set(obras.map(o=>o.fornecedor).filter(Boolean))].sort();
-  const sel=(id,arr)=>{
-    const el=document.getElementById(id);
-    if(el) el.innerHTML='<option value="">Todos</option>'+arr.map(v=>`<option value="${v}">${v}</option>`).join('');
-  };
-  sel('rp-resp',resps); sel('rp-fiscal',fiscais); sel('rp-forn',forns);
+  const opts=(arr)=>'<option value="">Todos</option>'+arr.map(v=>`<option value="${v}">${v}</option>`).join('');
+  const v=document.getElementById('view-relatorios');
+  if(!v) return;
+  v.innerHTML=`<div style="max-width:940px;margin:0 auto;padding:32px 24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+      <h2 style="font-family:'Playfair Display',serif;font-size:24px">📊 Relatórios Personalizados</h2>
+      <button class="btn btn-green" onclick="imprimirRelPersonalizado()">⬇️ Baixar PDF</button>
+    </div>
+    <div class="card" style="padding:16px;margin-bottom:24px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:14px;color:var(--ink)">Filtros</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="filtro-group">
+          <span class="filtro-label">Responsável</span>
+          <select class="filtro-select" id="rp-resp" onchange="renderRelPersonalizado()">${opts(resps)}</select>
+        </div>
+        <div class="filtro-group">
+          <span class="filtro-label">Fiscal</span>
+          <select class="filtro-select" id="rp-fiscal" onchange="renderRelPersonalizado()">${opts(fiscais)}</select>
+        </div>
+        <div class="filtro-group">
+          <span class="filtro-label">Fornecedor</span>
+          <select class="filtro-select" id="rp-forn" onchange="renderRelPersonalizado()">${opts(forns)}</select>
+        </div>
+        <button class="btn btn-ghost" onclick="limparRelPersonalizado()" style="font-size:12px">✕ Limpar</button>
+      </div>
+    </div>
+    <div id="rp-print"></div>
+  </div>`;
   renderRelPersonalizado();
-  abrirModal('modal-rel-personalizado');
 }
 
 function limparRelPersonalizado(){
@@ -2119,7 +2156,7 @@ function imprimirRelPersonalizado(){
 // Necessário porque <script type="module"> tem escopo próprio.
 Object.assign(window, {
   toggleMenu, navegarPara, mostrarView, setMenuAtivo, navegarVisaoGeral,
-  abrirRelPersonalizado, renderRelPersonalizado, limparRelPersonalizado, imprimirRelPersonalizado,
+  verRelatorios, renderRelPersonalizado, limparRelPersonalizado, imprimirRelPersonalizado,
   toggleDropdownAvisos, abrirAviso, marcarLidoAviso, marcarTodosLidosAvisos,
   verCentralAvisos, setAbaAvisos, abrirModalNovoAviso, enviarAvisoAdm,
   fazerLogin, logout,
@@ -2176,43 +2213,6 @@ carregar();
       <button class="btn btn-ghost" onclick="fecharModal('modal-novo-aviso')">Cancelar</button>
       <button class="btn btn-amber" onclick="enviarAvisoAdm()">Enviar</button>
     </div>
-  </div>
-</div>
-
-<!-- MODAL RELATÓRIO PERSONALIZADO -->
-<div class="modal-overlay" id="modal-rel-personalizado" style="z-index:600">
-  <div class="modal-box" style="max-width:860px;max-height:90vh;overflow-y:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <h3 style="font-size:22px">📋 Relatório Personalizado</h3>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-green no-print" onclick="imprimirRelPersonalizado()">⬇️ Baixar PDF</button>
-        <button class="btn btn-ghost no-print" onclick="fecharModal('modal-rel-personalizado')">✕ Fechar</button>
-      </div>
-    </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding:14px;background:var(--paper);border-radius:10px;border:1px solid var(--border)">
-      <div class="filtro-group">
-        <span class="filtro-label">Responsável</span>
-        <select class="filtro-select" id="rp-resp" onchange="renderRelPersonalizado()">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="filtro-group">
-        <span class="filtro-label">Fiscal</span>
-        <select class="filtro-select" id="rp-fiscal" onchange="renderRelPersonalizado()">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="filtro-group">
-        <span class="filtro-label">Fornecedor</span>
-        <select class="filtro-select" id="rp-forn" onchange="renderRelPersonalizado()">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div style="display:flex;align-items:flex-end">
-        <button class="btn btn-ghost" onclick="limparRelPersonalizado()" style="font-size:12px">✕ Limpar</button>
-      </div>
-    </div>
-    <div id="rp-print"></div>
   </div>
 </div>
 
