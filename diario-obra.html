@@ -337,7 +337,8 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
         </label>
         <div style="display:flex;gap:8px;margin-left:auto">
           <button class="btn btn-ghost" onclick="gerarRelatorio()" style="border-color:var(--gold);color:var(--gold)">📊 Relatório</button>
-    <button class="btn btn-amber" id="btn-nova-obra" onclick="abrirModal('modal-obra')" style="display:none">+ Nova Obra</button>
+          <button class="btn btn-ghost" onclick="abrirRelPersonalizado()" style="border-color:var(--gold);color:var(--gold)">📋 Personalizado</button>
+          <button class="btn btn-amber" id="btn-nova-obra" onclick="abrirModal('modal-obra')" style="display:none">+ Nova Obra</button>
         </div>
       </div>
 
@@ -2019,11 +2020,106 @@ async function enviarAvisoAdm(){
   finally{ hideLoading(); }
 }
 
+// ── RELATÓRIO PERSONALIZADO ───────────────────────────────────────────────────
+function abrirRelPersonalizado(){
+  const resps  =[...new Set(obras.map(o=>o.responsavel).filter(Boolean))].sort();
+  const fiscais=[...new Set(obras.map(o=>o.fiscal).filter(Boolean))].sort();
+  const forns  =[...new Set(obras.map(o=>o.fornecedor).filter(Boolean))].sort();
+  const sel=(id,arr)=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML='<option value="">Todos</option>'+arr.map(v=>`<option value="${v}">${v}</option>`).join('');
+  };
+  sel('rp-resp',resps); sel('rp-fiscal',fiscais); sel('rp-forn',forns);
+  renderRelPersonalizado();
+  abrirModal('modal-rel-personalizado');
+}
+
+function limparRelPersonalizado(){
+  ['rp-resp','rp-fiscal','rp-forn'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderRelPersonalizado();
+}
+
+function renderRelPersonalizado(){
+  const fResp  =(document.getElementById('rp-resp')?.value||'').toLowerCase();
+  const fFisc  =(document.getElementById('rp-fiscal')?.value||'').toLowerCase();
+  const fForn  =(document.getElementById('rp-forn')?.value||'').toLowerCase();
+
+  const fil=obras.filter(o=>{
+    if(fResp  && (o.responsavel||'').toLowerCase()!==fResp)  return false;
+    if(fFisc  && (o.fiscal||'').toLowerCase()!==fFisc)       return false;
+    if(fForn  && (o.fornecedor||'').toLowerCase()!==fForn)   return false;
+    return true;
+  }).sort((a,b)=>{
+    const ia=typeof a.id==='number'?a.id:parseInt(a.id)||0;
+    const ib=typeof b.id==='number'?b.id:parseInt(b.id)||0;
+    return ib-ia;
+  });
+
+  const dataFmt=new Date().toLocaleDateString('pt-BR');
+  const titulos=[fResp,fFisc,fForn].filter(Boolean);
+  const subtitulo=titulos.length ? titulos.join(' · ') : 'Todas as obras';
+
+  let html=`<div style="font-family:'Source Sans 3',sans-serif;color:#1C1917">
+    <div style="text-align:center;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #E8DFC8">
+      <p style="font-size:11px;color:#78716C;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Banco do Nordeste</p>
+      <h2 style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:4px">Relatório Personalizado</h2>
+      <p style="font-size:13px;color:#78716C">${subtitulo} — Emitido em ${dataFmt}</p>
+    </div>`;
+
+  if(!fil.length){
+    html+=`<p style="text-align:center;color:#78716C;padding:40px 0;font-style:italic">Nenhuma obra encontrada com os filtros selecionados.</p>`;
+  } else {
+    html+=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:#F5F0E8">
+          <th style="text-align:left;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">AF</th>
+          <th style="text-align:left;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700">Agência</th>
+          <th style="text-align:left;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700">Objeto</th>
+          <th style="text-align:left;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700">Fornecedor</th>
+          <th style="text-align:right;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Valor (R$)</th>
+          <th style="text-align:center;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Prazo Final</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${fil.map((o,i)=>`<tr style="background:${i%2===0?'#FFFEF9':'#F5F0E8'}">
+          <td style="padding:7px 10px;border:1px solid #E8DFC8;font-weight:700;color:#92400E;white-space:nowrap">${o.instrumento||'—'}</td>
+          <td style="padding:7px 10px;border:1px solid #E8DFC8;font-weight:600">${o.nome||'—'}</td>
+          <td style="padding:7px 10px;border:1px solid #E8DFC8;color:#44403C">${o.objeto||'—'}</td>
+          <td style="padding:7px 10px;border:1px solid #E8DFC8;color:#44403C">${o.fornecedor||'—'}</td>
+          <td style="padding:7px 10px;border:1px solid #E8DFC8;text-align:right;color:#44403C">${o.valor||'—'}</td>
+          <td style="padding:7px 10px;border:1px solid #E8DFC8;text-align:center;color:#44403C">${fmtDate(o.prazo)||'—'}</td>
+        </tr>`).join('')}
+        <tr style="background:#E8DFC8;font-weight:700">
+          <td colspan="5" style="padding:7px 10px;border:1px solid #D4C9B0">Total</td>
+          <td style="padding:7px 10px;border:1px solid #D4C9B0;text-align:center">${fil.length} obra${fil.length!==1?'s':''}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+
+  html+=`<div style="margin-top:20px;font-size:11px;color:#78716C;text-align:center">Relatório gerado pelo Diário de Obra — ${dataFmt}</div></div>`;
+  const el=document.getElementById('rp-print');
+  if(el) el.innerHTML=html;
+}
+
+function imprimirRelPersonalizado(){
+  const conteudo=document.getElementById('rp-print').innerHTML;
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Personalizado</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Source Sans 3',sans-serif;padding:24px}@media print{body{padding:0}}</style>
+    </head><body>${conteudo}</body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(),500);
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Expõe as funções chamadas por atributos onclick/onchange no HTML.
 // Necessário porque <script type="module"> tem escopo próprio.
 Object.assign(window, {
   toggleMenu, navegarPara, mostrarView, setMenuAtivo, navegarVisaoGeral,
+  abrirRelPersonalizado, renderRelPersonalizado, limparRelPersonalizado, imprimirRelPersonalizado,
   toggleDropdownAvisos, abrirAviso, marcarLidoAviso, marcarTodosLidosAvisos,
   verCentralAvisos, setAbaAvisos, abrirModalNovoAviso, enviarAvisoAdm,
   fazerLogin, logout,
@@ -2080,6 +2176,43 @@ carregar();
       <button class="btn btn-ghost" onclick="fecharModal('modal-novo-aviso')">Cancelar</button>
       <button class="btn btn-amber" onclick="enviarAvisoAdm()">Enviar</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL RELATÓRIO PERSONALIZADO -->
+<div class="modal-overlay" id="modal-rel-personalizado" style="z-index:600">
+  <div class="modal-box" style="max-width:860px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="font-size:22px">📋 Relatório Personalizado</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-green no-print" onclick="imprimirRelPersonalizado()">⬇️ Baixar PDF</button>
+        <button class="btn btn-ghost no-print" onclick="fecharModal('modal-rel-personalizado')">✕ Fechar</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding:14px;background:var(--paper);border-radius:10px;border:1px solid var(--border)">
+      <div class="filtro-group">
+        <span class="filtro-label">Responsável</span>
+        <select class="filtro-select" id="rp-resp" onchange="renderRelPersonalizado()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="filtro-group">
+        <span class="filtro-label">Fiscal</span>
+        <select class="filtro-select" id="rp-fiscal" onchange="renderRelPersonalizado()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="filtro-group">
+        <span class="filtro-label">Fornecedor</span>
+        <select class="filtro-select" id="rp-forn" onchange="renderRelPersonalizado()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="btn btn-ghost" onclick="limparRelPersonalizado()" style="font-size:12px">✕ Limpar</button>
+      </div>
+    </div>
+    <div id="rp-print"></div>
   </div>
 </div>
 
