@@ -343,7 +343,7 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
         </label>
         <div style="display:flex;gap:8px;margin-left:auto">
           <button class="btn btn-ghost" onclick="gerarRelatorio()" style="border-color:var(--gold);color:var(--gold)">📊 Relatório</button>
-          <button class="btn btn-amber" id="btn-nova-obra" onclick="abrirModal('modal-obra')" style="display:none">+ Nova Obra</button>
+          <button class="btn btn-amber" id="btn-nova-obra" onclick="abrirModalNovaObra()" style="display:none">+ Nova Obra</button>
         </div>
       </div>
 
@@ -378,8 +378,8 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
       <div><label class="field-label">Nome / Agência *</label><input class="input" id="f-nome" placeholder="Ex: Agência Água Branca (PI)"></div>
       <div><label class="field-label">Objeto</label><textarea class="input" id="f-objeto" placeholder="Descrição do serviço"></textarea></div>
       <div style="display:flex;gap:10px">
-        <div style="flex:1"><label class="field-label">Fiscal</label><input class="input" id="f-fiscal" placeholder="Nome do fiscal"></div>
-        <div style="flex:1"><label class="field-label">Responsável</label><input class="input" id="f-resp" placeholder="Ex: CARINE"></div>
+        <div style="flex:1"><label class="field-label">Fiscal</label><input class="input" id="f-fiscal" list="dl-fiscal" placeholder="Nome do fiscal" autocomplete="off"><datalist id="dl-fiscal"></datalist></div>
+        <div style="flex:1"><label class="field-label">Responsável</label><input class="input" id="f-resp" list="dl-resp" placeholder="Ex: CARINE" autocomplete="off"><datalist id="dl-resp"></datalist></div>
       </div>
       <div><label class="field-label">Fornecedor</label><input class="input" id="f-forn" placeholder="Empresa responsável"></div>
       <div style="display:flex;gap:10px">
@@ -1175,6 +1175,27 @@ document.querySelectorAll(".modal-overlay").forEach(el=>{
   el.addEventListener("click",e=>{if(e.target===el)fecharModal(el.id);});
 });
 
+function preencherDatalistsObra(){
+  const fiscais=[...new Set(obras.map(o=>o.fiscal).filter(Boolean))].sort();
+  const resps  =[...new Set(obras.map(o=>o.responsavel).filter(Boolean))].sort();
+  const dlF=document.getElementById('dl-fiscal');
+  const dlR=document.getElementById('dl-resp');
+  if(dlF) dlF.innerHTML=fiscais.map(f=>`<option value="${f}">`).join('');
+  if(dlR) dlR.innerHTML=resps.map(r=>`<option value="${r}">`).join('');
+}
+
+function abrirModalNovaObra(){
+  editandoId=null;
+  document.getElementById("modal-obra-titulo").textContent="Nova Obra";
+  ['f-nome','f-objeto','f-fiscal','f-resp','f-forn','f-instr','f-ged','f-valor',
+   'f-aditivo-dias','f-aditivo-valor','f-link','f-inicio','f-prazo-dias','f-vistoria-data']
+    .forEach(id=>{const el=document.getElementById(id);if(el) el.value='';});
+  document.getElementById("f-vistoria").checked=false;
+  document.getElementById("f-status").value='andamento';
+  preencherDatalistsObra();
+  abrirModal("modal-obra");
+}
+
 function editarObra(id){
   const o=obras.find(x=>x.id===id); if(!o) return;
   editandoId=id;
@@ -1195,6 +1216,7 @@ function editarObra(id){
   document.getElementById("f-inicio").value=toInputDate(o.inicio);
   document.getElementById("f-prazo-dias").value=o.prazoDias||"";
   document.getElementById("f-status").value=o.status||"andamento";
+  preencherDatalistsObra();
   abrirModal("modal-obra");
 }
 
@@ -2163,7 +2185,7 @@ Object.assign(window, {
   irLista, irDetalhe,
   renderLista, limparFiltros,
   abrirModal, fecharModal,
-  editarObra, salvarObra,
+  abrirModalNovaObra, editarObra, salvarObra,
   apagarObra, finalizarObra, confirmarFinalizacao,
   mudarStatus, mudarProg,
   togPend, remAviso, remPend, remAtu,
