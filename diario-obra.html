@@ -328,14 +328,6 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
             <option value="outro">Outros</option>
           </select>
         </div>
-        <div class="filtro-group">
-          <span class="filtro-label">Valor mínimo</span>
-          <input class="input" id="filtro-valor-min" style="width:130px" inputmode="decimal" placeholder="R$ 0,00" oninput="this.value=formatarMoedaInput(this.value);renderLista()">
-        </div>
-        <div class="filtro-group">
-          <span class="filtro-label">Valor máximo</span>
-          <input class="input" id="filtro-valor-max" style="width:130px" inputmode="decimal" placeholder="R$ 0,00" oninput="this.value=formatarMoedaInput(this.value);renderLista()">
-        </div>
         <button class="btn-limpar" onclick="limparFiltros()">✕ Limpar</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap">
           <input type="checkbox" id="mostrar-finalizadas" onchange="renderLista()" style="accent-color:var(--gold);width:15px;height:15px">
@@ -600,8 +592,6 @@ function navegarVisaoGeral(){
     const r=document.getElementById('filtro-resp'); if(r) r.value='';
     const f=document.getElementById('filtro-fiscal'); if(f) f.value='';
     const p=document.getElementById('filtro-pend'); if(p) p.value='';
-    const vMin=document.getElementById('filtro-valor-min'); if(vMin) vMin.value='';
-    const vMax=document.getElementById('filtro-valor-max'); if(vMax) vMax.value='';
     const fin=document.getElementById('mostrar-finalizadas'); if(fin) fin.checked=false;
     const sc=document.getElementById('filtro-sem-coment'); if(sc) sc.checked=false;
     const sr=document.getElementById('filtro-sem-retorno'); if(sr) sr.checked=false;
@@ -919,8 +909,6 @@ function limparFiltros(){
   document.getElementById("filtro-fiscal").value="";
   const ff=document.getElementById("filtro-forn"); if(ff) ff.value="";
   document.getElementById("filtro-pend").value="";
-  const vMin=document.getElementById("filtro-valor-min"); if(vMin) vMin.value="";
-  const vMax=document.getElementById("filtro-valor-max"); if(vMax) vMax.value="";
   if(document.getElementById("filtro-sem-retorno")) document.getElementById("filtro-sem-retorno").checked=false;
   renderLista();
 }
@@ -946,10 +934,6 @@ function renderLista(){
   const fResp=document.getElementById("filtro-resp").value;
   const fFisc=document.getElementById("filtro-fiscal").value;
   const fForn=document.getElementById("filtro-forn")?.value||'';
-  const fValorMinTxt=document.getElementById("filtro-valor-min")?.value||'';
-  const fValorMaxTxt=document.getElementById("filtro-valor-max")?.value||'';
-  const fValorMin = fValorMinTxt ? parseValorBR(fValorMinTxt) : null;
-  const fValorMax = fValorMaxTxt ? parseValorBR(fValorMaxTxt) : null;
 
   const mostrarFin = document.getElementById("mostrar-finalizadas").checked;
   const filtroSemComent = document.getElementById("filtro-sem-coment").checked;
@@ -968,11 +952,6 @@ function renderLista(){
     if(fResp && (o.responsavel||'').toLowerCase()!==fResp.toLowerCase()) return false;
     if(fFisc && o.fiscal!==fFisc) return false;
     if(fForn && (o.fornecedor||'').toLowerCase()!==fForn.toLowerCase()) return false;
-    if(fValorMin!=null || fValorMax!=null){
-      const totalValor=(Number(o.valor)||0)+(Number(o.aditivoValor)||0);
-      if(fValorMin!=null && totalValor<fValorMin) return false;
-      if(fValorMax!=null && totalValor>fValorMax) return false;
-    }
     if(filtroSemComent && temComentarioQuinzena(o)) return false;
     if(filtroSemRetorno && temRetornoSemanal(o)) return false;
     if(fPend){
@@ -2110,6 +2089,14 @@ function renderViewRelatorios(){
           <span class="filtro-label">Fornecedor</span>
           <select class="filtro-select" id="rp-forn" onchange="renderRelPersonalizado()">${opts(forns)}</select>
         </div>
+        <div class="filtro-group">
+          <span class="filtro-label">Valor mínimo</span>
+          <input class="input" id="rp-valor-min" style="width:130px" inputmode="decimal" placeholder="R$ 0,00" oninput="this.value=formatarMoedaInput(this.value);renderRelPersonalizado()">
+        </div>
+        <div class="filtro-group">
+          <span class="filtro-label">Valor máximo</span>
+          <input class="input" id="rp-valor-max" style="width:130px" inputmode="decimal" placeholder="R$ 0,00" oninput="this.value=formatarMoedaInput(this.value);renderRelPersonalizado()">
+        </div>
         <button class="btn btn-ghost" onclick="limparRelPersonalizado()" style="font-size:12px">✕ Limpar</button>
       </div>
     </div>
@@ -2119,7 +2106,7 @@ function renderViewRelatorios(){
 }
 
 function limparRelPersonalizado(){
-  ['rp-resp','rp-fiscal','rp-forn'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['rp-resp','rp-fiscal','rp-forn','rp-valor-min','rp-valor-max'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   renderRelPersonalizado();
 }
 
@@ -2127,11 +2114,20 @@ function renderRelPersonalizado(){
   const fResp  =(document.getElementById('rp-resp')?.value||'').toLowerCase();
   const fFisc  =(document.getElementById('rp-fiscal')?.value||'').toLowerCase();
   const fForn  =(document.getElementById('rp-forn')?.value||'').toLowerCase();
+  const fValorMinTxt=document.getElementById('rp-valor-min')?.value||'';
+  const fValorMaxTxt=document.getElementById('rp-valor-max')?.value||'';
+  const fValorMin = fValorMinTxt ? parseValorBR(fValorMinTxt) : null;
+  const fValorMax = fValorMaxTxt ? parseValorBR(fValorMaxTxt) : null;
 
   const fil=obras.filter(o=>{
     if(fResp  && (o.responsavel||'').toLowerCase()!==fResp)  return false;
     if(fFisc  && (o.fiscal||'').toLowerCase()!==fFisc)       return false;
     if(fForn  && (o.fornecedor||'').toLowerCase()!==fForn)   return false;
+    if(fValorMin!=null || fValorMax!=null){
+      const totalValor=(Number(o.valor)||0)+(Number(o.aditivoValor)||0);
+      if(fValorMin!=null && totalValor<fValorMin) return false;
+      if(fValorMax!=null && totalValor>fValorMax) return false;
+    }
     return true;
   }).sort((a,b)=>{
     const ia=typeof a.id==='number'?a.id:parseInt(a.id)||0;
