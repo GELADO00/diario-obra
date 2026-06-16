@@ -328,6 +328,14 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
             <option value="outro">Outros</option>
           </select>
         </div>
+        <div class="filtro-group">
+          <span class="filtro-label">Valor mínimo</span>
+          <input class="input" id="filtro-valor-min" style="width:130px" inputmode="decimal" placeholder="R$ 0,00" oninput="this.value=formatarMoedaInput(this.value);renderLista()">
+        </div>
+        <div class="filtro-group">
+          <span class="filtro-label">Valor máximo</span>
+          <input class="input" id="filtro-valor-max" style="width:130px" inputmode="decimal" placeholder="R$ 0,00" oninput="this.value=formatarMoedaInput(this.value);renderLista()">
+        </div>
         <button class="btn-limpar" onclick="limparFiltros()">✕ Limpar</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap">
           <input type="checkbox" id="mostrar-finalizadas" onchange="renderLista()" style="accent-color:var(--gold);width:15px;height:15px">
@@ -386,14 +394,14 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
         <div style="flex:1"><label class="field-label">Instrumento</label><input class="input" id="f-instr" placeholder="Ex: AF 2026/168"></div>
         <div style="flex:1"><label class="field-label">ID no GED</label><input class="input" id="f-ged" placeholder="Ex: 669872859"></div>
       </div>
-      <div><label class="field-label">Valor</label><input class="input" id="f-valor" placeholder="Ex: R$ 158.900,00"></div>
+      <div><label class="field-label">Valor *</label><input class="input" id="f-valor" inputmode="decimal" placeholder="Ex: R$ 158.900,00" oninput="this.value=formatarMoedaInput(this.value)"></div>
       <div style="display:flex;gap:10px">
         <div style="flex:1"><label class="field-label">Início</label><input class="input" id="f-inicio" type="date"></div>
         <div style="flex:1"><label class="field-label">Prazo (dias)</label><input class="input" id="f-prazo-dias" type="number" placeholder="Ex: 90"></div>
       </div>
       <div style="display:flex;gap:10px">
         <div style="flex:1"><label class="field-label">Aditivo de Prazo (dias)</label><input class="input" id="f-aditivo-dias" type="number" placeholder="Ex: 30"></div>
-        <div style="flex:1"><label class="field-label">Aditivo de Valor</label><input class="input" id="f-aditivo-valor" placeholder="Ex: R$ 10.000,00"></div>
+        <div style="flex:1"><label class="field-label">Aditivo de Valor</label><input class="input" id="f-aditivo-valor" inputmode="decimal" placeholder="Ex: R$ 10.000,00" oninput="this.value=formatarMoedaInput(this.value)"></div>
       </div>
       <div><label class="field-label">Link da Pasta (documentos)</label><input class="input" id="f-link" placeholder="https://drive.google.com/..."></div>
       <div style="display:flex;gap:10px;align-items:center">
@@ -564,6 +572,7 @@ import {
   uid, hoje, toInputDate, fmtDate, calcPrazoFinal, diasR, safeArr,
   isAdmin as _isAdmin, isGestor as _isGestor, isTecnico as _isTecnico, podeEditar as _podeEditar,
   quinzenaAtual, quinzenaLabel, temComentarioQuinzena, temRetornoSemanal,
+  parseValorBR, formatarMoeda, formatarMoedaInput,
 } from './src/utils.js';
 
 // ── NAVEGAÇÃO ──────────────────────────────────────────────────────────────
@@ -591,6 +600,8 @@ function navegarVisaoGeral(){
     const r=document.getElementById('filtro-resp'); if(r) r.value='';
     const f=document.getElementById('filtro-fiscal'); if(f) f.value='';
     const p=document.getElementById('filtro-pend'); if(p) p.value='';
+    const vMin=document.getElementById('filtro-valor-min'); if(vMin) vMin.value='';
+    const vMax=document.getElementById('filtro-valor-max'); if(vMax) vMax.value='';
     const fin=document.getElementById('mostrar-finalizadas'); if(fin) fin.checked=false;
     const sc=document.getElementById('filtro-sem-coment'); if(sc) sc.checked=false;
     const sr=document.getElementById('filtro-sem-retorno'); if(sr) sr.checked=false;
@@ -799,7 +810,7 @@ async function carregar(){
         objeto:String(o.objeto||""),
         fiscal:String(o.fiscal||""),
         fornecedor:String(o.fornecedor||""),
-        valor:String(o.valor||""),
+        valor:parseValorBR(o.valor),
         instrumento:String(o.instrumento||""),
         idGed:String(o.idGed||""),
         inicio:toInputDate(o.inicio),
@@ -818,7 +829,7 @@ async function carregar(){
         atualizacoes:safeArr(o.atualizacoes),
         comentariosQuinzenais:safeArr(o.comentariosQuinzenais),
         aditivoDias:String(o.aditivoDias||''),
-        aditivoValor:String(o.aditivoValor||''),
+        aditivoValor:parseValorBR(o.aditivoValor),
         linkPasta:String(o.linkPasta||''),
         vistoriaRealizada:Boolean(o.vistoriaRealizada)||false,
         vistoriaData:String(o.vistoriaData||''),
@@ -908,6 +919,8 @@ function limparFiltros(){
   document.getElementById("filtro-fiscal").value="";
   const ff=document.getElementById("filtro-forn"); if(ff) ff.value="";
   document.getElementById("filtro-pend").value="";
+  const vMin=document.getElementById("filtro-valor-min"); if(vMin) vMin.value="";
+  const vMax=document.getElementById("filtro-valor-max"); if(vMax) vMax.value="";
   if(document.getElementById("filtro-sem-retorno")) document.getElementById("filtro-sem-retorno").checked=false;
   renderLista();
 }
@@ -933,6 +946,10 @@ function renderLista(){
   const fResp=document.getElementById("filtro-resp").value;
   const fFisc=document.getElementById("filtro-fiscal").value;
   const fForn=document.getElementById("filtro-forn")?.value||'';
+  const fValorMinTxt=document.getElementById("filtro-valor-min")?.value||'';
+  const fValorMaxTxt=document.getElementById("filtro-valor-max")?.value||'';
+  const fValorMin = fValorMinTxt ? parseValorBR(fValorMinTxt) : null;
+  const fValorMax = fValorMaxTxt ? parseValorBR(fValorMaxTxt) : null;
 
   const mostrarFin = document.getElementById("mostrar-finalizadas").checked;
   const filtroSemComent = document.getElementById("filtro-sem-coment").checked;
@@ -951,6 +968,11 @@ function renderLista(){
     if(fResp && (o.responsavel||'').toLowerCase()!==fResp.toLowerCase()) return false;
     if(fFisc && o.fiscal!==fFisc) return false;
     if(fForn && (o.fornecedor||'').toLowerCase()!==fForn.toLowerCase()) return false;
+    if(fValorMin!=null || fValorMax!=null){
+      const totalValor=(Number(o.valor)||0)+(Number(o.aditivoValor)||0);
+      if(fValorMin!=null && totalValor<fValorMin) return false;
+      if(fValorMax!=null && totalValor>fValorMax) return false;
+    }
     if(filtroSemComent && temComentarioQuinzena(o)) return false;
     if(filtroSemRetorno && temRetornoSemanal(o)) return false;
     if(fPend){
@@ -1029,7 +1051,7 @@ function renderHeader(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
       ${o.instrumento?`<span style="background:#F5F0E8;padding:4px 12px;border-radius:6px;font-size:12px">📄 ${o.instrumento}</span>`:""}
       ${o.idGed?`<span style="background:#EDE9FE;color:#5B21B6;padding:4px 12px;border-radius:6px;font-size:12px">🗂️ GED: ${o.idGed}</span>`:`<span style="background:#F3F4F6;color:#9CA3AF;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer" onclick="editarObra(${o.id})">🗂️ Sem GED</span>`}
-      ${o.valor?`<span style="background:#D1FAE5;color:#065F46;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700">💰 ${o.valor}${o.aditivoValor?` <span style="color:#10B981">(+${o.aditivoValor})</span>`:''}</span>`:""}
+      ${o.valor?`<span style="background:#D1FAE5;color:#065F46;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700">💰 ${formatarMoeda(o.valor)}${o.aditivoValor?` <span style="color:#10B981">(+${formatarMoeda(o.aditivoValor)})</span>`:''}</span>`:""}
   ${o.vistoriaRealizada?`<span style="background:#D1FAE5;color:#065F46;padding:4px 12px;border-radius:6px;font-size:12px">🔍 Vistoria realizada${o.vistoriaData?' em '+fmtDate(o.vistoriaData):''}</span>`:`<span style="background:#FEE2E2;color:#EF4444;padding:4px 12px;border-radius:6px;font-size:12px">🔍 Vistoria pendente</span>`}
     </div>
     <div>
@@ -1207,9 +1229,9 @@ function editarObra(id){
   document.getElementById("f-forn").value=o.fornecedor||"";
   document.getElementById("f-instr").value=o.instrumento||"";
   document.getElementById("f-ged").value=o.idGed||"";
-  document.getElementById("f-valor").value=o.valor||"";
+  document.getElementById("f-valor").value=o.valor?formatarMoeda(o.valor):"";
   document.getElementById("f-aditivo-dias").value=o.aditivoDias||"";
-  document.getElementById("f-aditivo-valor").value=o.aditivoValor||"";
+  document.getElementById("f-aditivo-valor").value=o.aditivoValor?formatarMoeda(o.aditivoValor):"";
   document.getElementById("f-link").value=o.linkPasta||"";
   document.getElementById("f-vistoria").checked=o.vistoriaRealizada||false;
   document.getElementById("f-vistoria-data").value=toInputDate(o.vistoriaData);
@@ -1223,9 +1245,12 @@ function editarObra(id){
 function salvarObra(){
   const nome=document.getElementById("f-nome").value.trim();
   if(!nome){alert("Preencha o nome.");return;}
+  if(!editandoId && !document.getElementById("f-valor").value.trim()){alert("Preencha o valor.");return;}
   const inicio=document.getElementById("f-inicio").value;
   const prazoDias=document.getElementById("f-prazo-dias").value;
   const prazoFinal=calcPrazoFinal(inicio,prazoDias);
+  const valor=parseValorBR(document.getElementById("f-valor").value);
+  const aditivoValor=parseValorBR(document.getElementById("f-aditivo-valor").value);
 
   if(editandoId){
     const o=obras.find(x=>x.id===editandoId);
@@ -1237,9 +1262,9 @@ function salvarObra(){
       fornecedor:document.getElementById("f-forn").value.trim(),
       instrumento:document.getElementById("f-instr").value.trim(),
       idGed:document.getElementById("f-ged").value.trim(),
-      valor:document.getElementById("f-valor").value.trim(),
+      valor,
       aditivoDias:document.getElementById("f-aditivo-dias").value.trim(),
-      aditivoValor:document.getElementById("f-aditivo-valor").value.trim(),
+      aditivoValor,
       linkPasta:document.getElementById("f-link").value.trim(),
       vistoriaRealizada:document.getElementById("f-vistoria").checked,
       vistoriaData:document.getElementById("f-vistoria-data").value,
@@ -1262,9 +1287,9 @@ function salvarObra(){
       fornecedor:document.getElementById("f-forn").value.trim(),
       instrumento:document.getElementById("f-instr").value.trim(),
       idGed:document.getElementById("f-ged").value.trim(),
-      valor:document.getElementById("f-valor").value.trim(),
+      valor,
       aditivoDias:document.getElementById("f-aditivo-dias").value.trim(),
-      aditivoValor:document.getElementById("f-aditivo-valor").value.trim(),
+      aditivoValor,
       linkPasta:document.getElementById("f-link").value.trim(),
       vistoriaRealizada:document.getElementById("f-vistoria").checked,
       vistoriaData:document.getElementById("f-vistoria-data").value,
@@ -1708,7 +1733,7 @@ function gerarRelatorio(){
         ${o.objeto?`<div><span style="font-weight:700">Objeto:</span> ${o.objeto}</div>`:''}
         ${o.fiscal?`<div><span style="font-weight:700">Fiscal:</span> ${o.fiscal}</div>`:''}
         ${o.fornecedor?`<div><span style="font-weight:700">Fornecedor:</span> ${o.fornecedor}</div>`:''}
-        ${o.valor?`<div><span style="font-weight:700">Valor:</span> ${o.valor}</div>`:''}
+        ${o.valor?`<div><span style="font-weight:700">Valor:</span> ${formatarMoeda(o.valor)}${o.aditivoValor?` (+${formatarMoeda(o.aditivoValor)})`:''}</div>`:''}
         ${o.instrumento?`<div><span style="font-weight:700">Instrumento:</span> ${o.instrumento}</div>`:''}
         ${o.idGed?`<div><span style="font-weight:700">ID no GED:</span> ${o.idGed}</div>`:''}
       </div>
@@ -2145,7 +2170,7 @@ function renderRelPersonalizado(){
           <td style="padding:7px 10px;border:1px solid #E8DFC8;font-weight:600">${o.nome||'—'}</td>
           <td style="padding:7px 10px;border:1px solid #E8DFC8;color:#44403C">${o.objeto||'—'}</td>
           <td style="padding:7px 10px;border:1px solid #E8DFC8;color:#44403C">${o.fornecedor||'—'}</td>
-          <td style="padding:7px 10px;border:1px solid #E8DFC8;text-align:right;color:#44403C">${o.valor||'—'}</td>
+          <td style="padding:7px 10px;border:1px solid #E8DFC8;text-align:right;color:#44403C">${o.valor?formatarMoeda(o.valor)+(o.aditivoValor?` (+${formatarMoeda(o.aditivoValor)})`:''):'—'}</td>
           <td style="padding:7px 10px;border:1px solid #E8DFC8;text-align:center;color:#44403C">${fmtDate(o.prazo)||'—'}</td>
         </tr>`).join('')}
         <tr style="background:#E8DFC8;font-weight:700">
@@ -2196,6 +2221,7 @@ Object.assign(window, {
   abrirModalEvento, salvarEvento, verEvento,
   editarEventoAtual, excluirEventoAtual, excluirEventoObra, addPeriodo,
   gerarRelatorio, imprimirRelatorio,
+  formatarMoedaInput,
 });
 
 carregar();

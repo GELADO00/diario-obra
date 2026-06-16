@@ -13,6 +13,9 @@ import {
   quinzenaLabel,
   temComentarioQuinzena,
   temRetornoSemanal,
+  parseValorBR,
+  formatarMoeda,
+  formatarMoedaInput,
 } from "./utils.js";
 
 // ── toInputDate ────────────────────────────────────────────────────────────
@@ -178,6 +181,83 @@ describe("diasR", () => {
 });
 
 // ── safeArr ────────────────────────────────────────────────────────────────
+// ── parseValorBR ───────────────────────────────────────────────────────────
+describe("parseValorBR", () => {
+  it("returns 0 for null, undefined or empty input", () => {
+    expect(parseValorBR(null)).toBe(0);
+    expect(parseValorBR(undefined)).toBe(0);
+    expect(parseValorBR("")).toBe(0);
+  });
+
+  it("returns a number unchanged", () => {
+    expect(parseValorBR(158944.42)).toBe(158944.42);
+    expect(parseValorBR(0)).toBe(0);
+  });
+
+  it("parses a Brazilian-formatted string (dot thousands, comma decimal)", () => {
+    expect(parseValorBR("158.944,42")).toBe(158944.42);
+    expect(parseValorBR("1.500.000,00")).toBe(1500000);
+    expect(parseValorBR("R$ 10.000,00")).toBe(10000);
+  });
+
+  it("parses a plain numeric string with dot as decimal point", () => {
+    expect(parseValorBR("158944.42")).toBe(158944.42);
+    expect(parseValorBR("150000")).toBe(150000);
+  });
+
+  it("strips legacy CSV-import prefix text and keeps the trailing number", () => {
+    expect(
+      parseValorBR("d. Valor inicial da contratação: 158.944,42")
+    ).toBe(158944.42);
+    expect(parseValorBR("Valor: R$ 10.000,00")).toBe(10000);
+  });
+
+  it("returns 0 for strings with no numeric content", () => {
+    expect(parseValorBR("texto sem numero")).toBe(0);
+  });
+});
+
+// ── formatarMoeda ──────────────────────────────────────────────────────────
+describe("formatarMoeda", () => {
+  it("formats a number as R$ 000.000,00", () => {
+    expect(formatarMoeda(158944.42)).toBe("R$ 158.944,42");
+    expect(formatarMoeda(1500000)).toBe("R$ 1.500.000,00");
+    expect(formatarMoeda(10000)).toBe("R$ 10.000,00");
+  });
+
+  it("treats falsy/invalid input as zero", () => {
+    expect(formatarMoeda(0)).toBe("R$ 0,00");
+    expect(formatarMoeda(null)).toBe("R$ 0,00");
+    expect(formatarMoeda(undefined)).toBe("R$ 0,00");
+    expect(formatarMoeda(NaN)).toBe("R$ 0,00");
+  });
+
+  it("rounds to two decimal places", () => {
+    expect(formatarMoeda(10.005)).toMatch(/^R\$ 10,0[01]$/);
+    expect(formatarMoeda(10.1)).toBe("R$ 10,10");
+  });
+});
+
+// ── formatarMoedaInput ─────────────────────────────────────────────────────
+describe("formatarMoedaInput", () => {
+  it("returns an empty string when there are no digits", () => {
+    expect(formatarMoedaInput("")).toBe("");
+    expect(formatarMoedaInput("R$ ")).toBe("");
+    expect(formatarMoedaInput(null)).toBe("");
+  });
+
+  it("treats the last two typed digits as cents", () => {
+    expect(formatarMoedaInput("1")).toBe("R$ 0,01");
+    expect(formatarMoedaInput("15")).toBe("R$ 0,15");
+    expect(formatarMoedaInput("158944")).toBe("R$ 1.589,44");
+    expect(formatarMoedaInput("15894442")).toBe("R$ 158.944,42");
+  });
+
+  it("ignores any non-digit characters already present (e.g. from prior formatting)", () => {
+    expect(formatarMoedaInput("R$ 1.589,44")).toBe("R$ 1.589,44");
+  });
+});
+
 describe("safeArr", () => {
   it("returns an array as-is", () => {
     expect(safeArr([])).toEqual([]);

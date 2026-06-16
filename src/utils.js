@@ -79,6 +79,65 @@ export function diasR(prazo, aditivoDias, now = new Date()) {
   return Math.round((prazoFinal - hojeUTC) / 86400000) + 1;
 }
 
+/**
+ * Parses a monetary value from legacy/free-text input into a pure number.
+ * Handles plain numbers, Brazilian-formatted strings ("158.944,42"), and
+ * strings with leftover prefix text from old CSV imports (e.g.
+ * "d. Valor inicial da contratação: 158.944,42") by keeping only the last
+ * numeric-looking token found in the string.
+ *
+ * Disambiguates "." as thousands separator vs decimal point by checking
+ * for the presence of a comma: if a comma is present, dots are treated as
+ * thousands separators and the comma as the decimal point (BR format). If
+ * no comma is present, the dot (if any) is treated as the decimal point.
+ *
+ * @param {string|number|null} valor
+ * @returns {number}
+ */
+export function parseValorBR(valor) {
+  if (valor == null) return 0;
+  if (typeof valor === "number") return isNaN(valor) ? 0 : valor;
+  const str = String(valor).trim();
+  if (!str) return 0;
+  const matches = str.match(/[\d.,]+/g);
+  if (!matches) return 0;
+  let num = matches[matches.length - 1];
+  num = num.includes(",") ? num.replace(/\./g, "").replace(",", ".") : num;
+  const parsed = parseFloat(num);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Formats a number as Brazilian currency, e.g. 158944.4 -> "R$ 158.944,40".
+ *
+ * @param {number} numero
+ */
+export function formatarMoeda(numero) {
+  const n = Number(numero) || 0;
+  return (
+    "R$ " +
+    n.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
+}
+
+/**
+ * Live-masking helper for currency inputs: strips every non-digit character
+ * from the current field value and re-derives the formatted string, treating
+ * the last two digits as cents. Meant to be wired to an input's `oninput`
+ * handler so typing/deleting digits always produces a valid "R$ 0,00" mask.
+ *
+ * @param {string} valorAtual - the input's current (possibly already
+ *   formatted) value
+ */
+export function formatarMoedaInput(valorAtual) {
+  const digits = String(valorAtual || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return formatarMoeda(parseInt(digits, 10) / 100);
+}
+
 export function safeArr(v) {
   if (Array.isArray(v)) return v;
   try {
