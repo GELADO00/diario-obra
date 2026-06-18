@@ -1031,6 +1031,7 @@ function renderHeader(){
       ${o.instrumento?`<span style="background:#F5F0E8;padding:4px 12px;border-radius:6px;font-size:12px">📄 ${o.instrumento}</span>`:""}
       ${o.idGed?`<span style="background:#EDE9FE;color:#5B21B6;padding:4px 12px;border-radius:6px;font-size:12px">🗂️ GED: ${o.idGed}</span>`:`<span style="background:#F3F4F6;color:#9CA3AF;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer" onclick="editarObra(${o.id})">🗂️ Sem GED</span>`}
       ${o.valor?`<span style="background:#D1FAE5;color:#065F46;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700">💰 ${formatarMoeda(o.valor)}${o.aditivoValor?` <span style="color:#10B981">(+${formatarMoeda(o.aditivoValor)})</span>`:''}</span>`:""}
+      ${o.linkPasta?`<a href="${o.linkPasta}" target="_blank" rel="noopener" style="background:#DBEAFE;color:#1D4ED8;padding:4px 12px;border-radius:6px;font-size:12px;text-decoration:none">📁 Pasta da Obra</a>`:""}
   ${o.vistoriaRealizada?`<span style="background:#D1FAE5;color:#065F46;padding:4px 12px;border-radius:6px;font-size:12px">🔍 Vistoria realizada${o.vistoriaData?' em '+fmtDate(o.vistoriaData):''}</span>`:`<span style="background:#FEE2E2;color:#EF4444;padding:4px 12px;border-radius:6px;font-size:12px">🔍 Vistoria pendente</span>`}
     </div>
     <div>
