@@ -2121,6 +2121,7 @@ function renderRelPersonalizado(){
   const fValorMax = fValorMaxTxt ? parseValorBR(fValorMaxTxt) : null;
 
   const fil=obras.filter(o=>{
+    if(o.status==='concluida') return false;
     if(fResp  && (o.responsavel||'').toLowerCase()!==fResp)  return false;
     if(fFisc  && (o.fiscal||'').toLowerCase()!==fFisc)       return false;
     if(fForn  && (o.fornecedor||'').toLowerCase()!==fForn)   return false;
