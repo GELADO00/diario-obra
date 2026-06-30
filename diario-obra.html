@@ -408,6 +408,7 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
           <option value="planejamento">Planejamento / P/ Iniciar</option>
           <option value="andamento">Em Andamento</option>
           <option value="pausada">Pausada</option>
+          <option value="processo_administrativo">Proc. Administrativo</option>
         </select>
       </div>
     </div>
@@ -642,10 +643,11 @@ async function sha256(msg){
 }
 
 const STATUS_CFG = {
-  planejamento:{label:"Planejamento",color:"#F59E0B",bg:"#FEF3C7"},
-  andamento:   {label:"Em Andamento",color:"#3B82F6",bg:"#DBEAFE"},
-  concluida:   {label:"Finalizada",  color:"#10B981",bg:"#D1FAE5"},
-  pausada:     {label:"Pausada",     color:"#EF4444",bg:"#FEE2E2"},
+  planejamento:           {label:"Planejamento",          color:"#F59E0B",bg:"#FEF3C7"},
+  andamento:              {label:"Em Andamento",          color:"#3B82F6",bg:"#DBEAFE"},
+  concluida:              {label:"Finalizada",            color:"#10B981",bg:"#D1FAE5"},
+  pausada:                {label:"Pausada",               color:"#EF4444",bg:"#FEE2E2"},
+  processo_administrativo:{label:"Proc. Administrativo", color:"#7C3AED",bg:"#EDE9FE"},
 };
 const PRIO_CFG = {
   alta: {label:"Alta", color:"#EF4444"},
@@ -2112,6 +2114,12 @@ function renderViewRelatorios(){
           <span class="filtro-label">Valor máximo</span>
           <input class="input" id="rp-valor-max" style="width:130px" inputmode="decimal" placeholder="R$ 0,00" oninput="this.value=formatarMoedaInput(this.value);renderRelPersonalizado()">
         </div>
+        <div class="filtro-group">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap">
+            <input type="checkbox" id="rp-incluir-pa" onchange="renderRelPersonalizado()" style="width:15px;height:15px;cursor:pointer">
+            Incluir obras com processos administrativos?
+          </label>
+        </div>
         <button class="btn btn-ghost" onclick="limparRelPersonalizado()" style="font-size:12px">✕ Limpar</button>
       </div>
     </div>
@@ -2122,6 +2130,7 @@ function renderViewRelatorios(){
 
 function limparRelPersonalizado(){
   ['rp-resp','rp-fiscal','rp-forn','rp-valor-min','rp-valor-max'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const paEl=document.getElementById('rp-incluir-pa');if(paEl)paEl.checked=false;
   renderRelPersonalizado();
 }
 
@@ -2133,9 +2142,11 @@ function renderRelPersonalizado(){
   const fValorMaxTxt=document.getElementById('rp-valor-max')?.value||'';
   const fValorMin = fValorMinTxt ? parseValorBR(fValorMinTxt) : null;
   const fValorMax = fValorMaxTxt ? parseValorBR(fValorMaxTxt) : null;
+  const incluirPA = document.getElementById('rp-incluir-pa')?.checked || false;
 
   const fil=obras.filter(o=>{
     if(o.status==='concluida') return false;
+    if(o.status==='processo_administrativo' && !incluirPA) return false;
     if(fResp  && (o.responsavel||'').toLowerCase()!==fResp)  return false;
     if(fFisc  && (o.fiscal||'').toLowerCase()!==fFisc)       return false;
     if(fForn  && (o.fornecedor||'').toLowerCase()!==fForn)   return false;
