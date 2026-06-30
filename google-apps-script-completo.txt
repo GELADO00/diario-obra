@@ -6,38 +6,42 @@ const COLS_OBRAS = ['ID','NOME','OBJETO','FISCAL','FORNECEDOR','VALOR','INSTRUME
   'ADITIVO_DIAS','ADITIVO_VALOR','LINK_PASTA','VERSAO','VISTORIA_REALIZADA','VISTORIA_DATA','DATA_FINALIZACAO','ID_TERMO_RECEBIMENTO','EVENTOS'];
 const COLS_USERS = ['NOME','SENHA_HASH','PERFIL'];
 
-// Nível 1: Chave secreta
 const APP_KEY = "3abeb74aceffdafb4ff157b193149c58cabc2a19173f5d7b4dfc94cec45ea39a";
 
-// Nível 3: Domínio permitido
-const DOMINIO_PERMITIDO = "gelado00.github.io";
-
 function doGet(e) {
-  const lock = LockService.getScriptLock();
-  lock.tryLock(15000);
-  try {
-    // Verificar chave secreta
-    if (!e.parameter.appKey || e.parameter.appKey !== APP_KEY) {
-      const errJson = JSON.stringify({ error: "Acesso não autorizado" });
-      const cb = e.parameter.callback;
-      if (cb) return ContentService.createTextOutput(`${cb}(${errJson})`).setMimeType(ContentService.MimeType.JAVASCRIPT);
-      return ContentService.createTextOutput(errJson).setMimeType(ContentService.MimeType.JSON);
-    }
+  // Verificar chave secreta primeiro, sem lock
+  if (!e.parameter.appKey || e.parameter.appKey !== APP_KEY) {
+    const errJson = JSON.stringify({ error: "Acesso não autorizado" });
+    const cb = e.parameter.callback;
+    if (cb) return ContentService.createTextOutput(`${cb}(${errJson})`).setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return ContentService.createTextOutput(errJson).setMimeType(ContentService.MimeType.JSON);
+  }
 
-    const ss = getSpreadsheet();
-    const action = e.parameter.action;
-    const callback = e.parameter.callback;
+  const action   = e.parameter.action;
+  const callback = e.parameter.callback;
+
+  // Lock apenas para operações de escrita
+  const WRITE_ACTIONS = ['saveOne', 'deleteObra', 'marcarLido', 'marcarTodosLidos', 'criarAviso'];
+  const lock = WRITE_ACTIONS.indexOf(action) >= 0 ? LockService.getScriptLock() : null;
+  if (lock) lock.tryLock(10000);
+
+  try {
     let result;
 
-    if      (action === "login")           result = login(ss, e.parameter.nome, e.parameter.senha);
-    else if (action === "load")            result = loadObras(ss.getSheetByName(SHEET_OBRAS));
-    else if (action === "saveOne")         result = saveOneObra(ss.getSheetByName(SHEET_OBRAS), JSON.parse(e.parameter.obra));
-    else if (action === "deleteObra")      result = deleteObra(ss.getSheetByName(SHEET_OBRAS), e.parameter.id);
-    else if (action === "loadAvisos")      result = loadAvisos(e.parameter.destinatario);
-    else if (action === "marcarLido")      result = marcarLido(e.parameter.id);
-    else if (action === "marcarTodosLidos") result = marcarTodosLidos(e.parameter.destinatario);
-    else if (action === "criarAviso")      result = criarAviso(e.parameter);
-    else result = { error: "Ação inválida" };
+    // Ações de avisos: não precisam da planilha principal
+    if      (action === "loadAvisos")       result = loadAvisos(e.parameter.destinatario);
+    else if (action === "marcarLido")        result = marcarLido(e.parameter.id);
+    else if (action === "marcarTodosLidos")  result = marcarTodosLidos(e.parameter.destinatario);
+    else if (action === "criarAviso")        result = criarAviso(e.parameter);
+    else {
+      // Ações que precisam da planilha principal
+      const ss = getSpreadsheet();
+      if      (action === "login")      result = login(ss, e.parameter.nome, e.parameter.senha);
+      else if (action === "load")       result = loadObras(ss.getSheetByName(SHEET_OBRAS));
+      else if (action === "saveOne")    result = saveOneObra(ss.getSheetByName(SHEET_OBRAS), JSON.parse(e.parameter.obra));
+      else if (action === "deleteObra") result = deleteObra(ss.getSheetByName(SHEET_OBRAS), e.parameter.id);
+      else result = { error: "Ação inválida" };
+    }
 
     const json = JSON.stringify(result);
     if (callback) return ContentService.createTextOutput(`${callback}(${json})`).setMimeType(ContentService.MimeType.JAVASCRIPT);
@@ -45,17 +49,29 @@ function doGet(e) {
 
   } catch (err) {
     const errJson = JSON.stringify({ error: err.toString() });
-    const callback = e.parameter && e.parameter.callback;
     if (callback) return ContentService.createTextOutput(`${callback}(${errJson})`).setMimeType(ContentService.MimeType.JAVASCRIPT);
     return ContentService.createTextOutput(errJson).setMimeType(ContentService.MimeType.JSON);
   } finally {
-    lock.releaseLock();
+    if (lock) lock.releaseLock();
   }
 }
 
+// Abre a planilha por ID em cache (muito mais rápido que buscar por nome no Drive)
 function getSpreadsheet() {
-  const files = DriveApp.getFilesByName("DiarioDeObra");
-  let ss = files.hasNext() ? SpreadsheetApp.open(files.next()) : SpreadsheetApp.create("DiarioDeObra");
+  const props = PropertiesService.getScriptProperties();
+  const cachedId = props.getProperty('SS_ID');
+  let ss = null;
+
+  if (cachedId) {
+    try { ss = SpreadsheetApp.openById(cachedId); } catch(e) { ss = null; }
+  }
+
+  if (!ss) {
+    const files = DriveApp.getFilesByName("DiarioDeObra");
+    ss = files.hasNext() ? SpreadsheetApp.open(files.next()) : SpreadsheetApp.create("DiarioDeObra");
+    props.setProperty('SS_ID', ss.getId());
+  }
+
   if (!ss.getSheetByName(SHEET_OBRAS)) ss.insertSheet(SHEET_OBRAS).appendRow(COLS_OBRAS);
   if (!ss.getSheetByName(SHEET_USERS)) {
     const s = ss.insertSheet(SHEET_USERS);
@@ -113,10 +129,9 @@ function saveOneObra(sheet, obra) {
     const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
     const idx = ids.findIndex(id => String(id) === String(obra.id));
     if (idx >= 0) {
-      // Lê a linha existente antes de sobrescrever (para avisos automáticos)
       const existingRow = sheet.getRange(idx + 2, 1, 1, COLS_OBRAS.length).getValues()[0];
       const versaoAtual = Number(existingRow[22]) || 0;
-      const versaoObra = Number(obra.versao) || 0;
+      const versaoObra  = Number(obra.versao) || 0;
       if (versaoAtual > versaoObra) {
         return { success: false, conflito: true, versaoAtual };
       }
@@ -210,7 +225,6 @@ function loadAvisos(destinatario) {
     }
   }
 
-  // Não lidos primeiro, depois por data decrescente
   avisos.sort((a, b) => {
     if (a.lido !== b.lido) return a.lido ? 1 : -1;
     return b.data.localeCompare(a.data);
@@ -226,7 +240,7 @@ function marcarLido(id) {
 
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === strId) {
-      sheet.getRange(i + 1, 8).setValue(true); // coluna H = LIDO
+      sheet.getRange(i + 1, 8).setValue(true);
       return { success: true };
     }
   }
@@ -275,7 +289,6 @@ function gerarAvisosAutomaticos(obraAntiga, novaObra) {
   const nome     = String(novaObra.nome || '').trim();
   const obraId   = String(novaObra.id   || '');
 
-  // 1. Obra nova atribuída a um técnico
   if (!obraAntiga && novoResp) {
     criarAviso({
       destinatario: novoResp,
@@ -288,7 +301,6 @@ function gerarAvisosAutomaticos(obraAntiga, novaObra) {
     return;
   }
 
-  // 2. Responsável trocado
   if (obraAntiga && String(obraAntiga.responsavel || '').trim() !== novoResp) {
     criarAviso({
       destinatario: novoResp,
@@ -300,7 +312,6 @@ function gerarAvisosAutomaticos(obraAntiga, novaObra) {
     });
   }
 
-  // 3. Novas pendências adicionadas
   if (obraAntiga) {
     const idsAntigos = new Set(
       (obraAntiga.pendencias || []).map(p => String(p.id))

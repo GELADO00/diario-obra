@@ -632,7 +632,7 @@ function navegarComFiltro(status){
   }, delay);
 }
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzwnW_DB7EHoin2NRLSun_DtXcGjy1v8Q7udfSG1zfsIvAbI7tNKxO5HA06mFjFQPNG/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzL43VUbqaZ3CqBuYG20AlGDHrR6AMUVnRLPvQZFPz4aNb4YJeiYZOrcN-B5SF8Tnot/exec";
 const APP_KEY = "3abeb74aceffdafb4ff157b193149c58cabc2a19173f5d7b4dfc94cec45ea39a";
 
 // Hash SHA-256 para senhas
@@ -724,9 +724,9 @@ function showToast(msg,erro=false){
 }
 
 // ── API JSONP ──────────────────────────────────────────────────────────
-function chamarAPI(params){
+function chamarAPIUma(params){
   return new Promise((resolve,reject)=>{
-    const cb="cb_"+uid();
+    const cb="cb_"+Date.now()+"_"+Math.floor(Math.random()*999999);
     const url=new URL(API_URL);
     for(const[k,v] of Object.entries(params)){
       url.searchParams.set(k,typeof v==="object"?JSON.stringify(v):String(v));
@@ -734,13 +734,25 @@ function chamarAPI(params){
     url.searchParams.set("appKey",APP_KEY);
     url.searchParams.set("callback",cb);
     const script=document.createElement("script");
-    const timer=setTimeout(()=>{cleanup();reject(new Error("Timeout"));},20000);
-    function cleanup(){clearTimeout(timer);delete window[cb];if(script.parentNode)script.parentNode.removeChild(script);}
-    window[cb]=(data)=>{cleanup();resolve(data);};
+    const timer=setTimeout(()=>{cleanup();reject(new Error("Timeout"));},30000);
+    function cleanup(){clearTimeout(timer);try{delete window[cb];}catch(_){}if(script.parentNode)script.parentNode.removeChild(script);}
+    window[cb]=function(data){cleanup();resolve(data);};
     script.onerror=()=>{cleanup();reject(new Error("Erro de rede"));};
     script.src=url.toString();
     document.head.appendChild(script);
   });
+}
+
+async function chamarAPI(params, tentativas=3){
+  for(let i=0;i<tentativas;i++){
+    try{
+      return await chamarAPIUma(params);
+    } catch(e){
+      const ultima = i===tentativas-1;
+      if(ultima) throw e;
+      await new Promise(r=>setTimeout(r,(i+1)*2000));
+    }
+  }
 }
 
 // ── LOGIN ──────────────────────────────────────────────────────────────
@@ -842,26 +854,28 @@ async function carregar(){
 }
 
 // ── SALVAR / DELETAR ───────────────────────────────────────────────────
-async function salvarUma(id){
+async function salvarUma(id, _force=false){
   const o=obras.find(x=>x.id===id); if(!o) return;
   try{
-    const r = await chamarAPI({action:"saveOne", obra:o});
+    // Saves: 1 attempt only to avoid double-write on slow network
+    const r = await chamarAPI({action:"saveOne", obra:o}, 1);
     if(r && r.conflito){
-      // Conflito de versão detectado
-      const recarregar = confirm("⚠️ Atenção!\n\nEssa obra foi alterada por outra pessoa enquanto você editava.\n\nClique OK para recarregar os dados atualizados, ou Cancelar para manter suas alterações.");
-      if(recarregar){
-        await carregar();
-        showToast("🔄 Dados recarregados!");
+      if(!_force){
+        // Outra pessoa salvou antes: atualiza versão local e tenta salvar novamente (uma vez)
+        obras = obras.map(x=>x.id===id ? {...x, versao:r.versaoAtual} : x);
+        showToast("🔄 Conflito resolvido, re-salvando...");
+        await salvarUma(id, true);
       } else {
-        showToast("⚠️ Suas alterações não foram salvas.", true);
+        showToast("⚠️ Não foi possível salvar. Recarregue a página.", true);
       }
-    } else {
-      // Incrementar versão local após salvar
+    } else if(r && r.success){
       obras = obras.map(x => x.id===id ? {...x, versao:(x.versao||0)+1} : x);
       showToast("✅ Salvo!");
+    } else {
+      showToast("⚠️ Erro ao salvar: "+(r&&r.error||"resposta inválida"), true);
     }
   }
-  catch(e){ showToast("⚠️ Erro ao salvar.",true); }
+  catch(e){ showToast("⚠️ Erro ao salvar. Verifique sua conexão.",true); }
 }
 function debSalvar(id){ clearTimeout(debTimer); debTimer=setTimeout(()=>salvarUma(id),1000); }
 
