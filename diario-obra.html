@@ -2194,9 +2194,9 @@ function renderRelPersonalizado(){
   const subtitulo=titulos.length ? titulos.join(' · ') : 'Todas as obras';
   const completo = tipoRel==='completo';
 
-  const ultimoComent = o => {
-    const cs=safeArr(o.comentariosQuinzenais).sort((a,b)=>b.data.localeCompare(a.data));
-    return cs.length ? cs[0].texto : '—';
+  const ultimaAtu = o => {
+    const ats=safeArr(o.atualizacoes);
+    return ats.length ? ats[0].texto : '—';
   };
 
   let html=`<div style="font-family:'Source Sans 3',sans-serif;color:#1C1917">
@@ -2219,7 +2219,7 @@ function renderRelPersonalizado(){
           <th style="text-align:right;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Valor (R$)</th>
           <th style="text-align:center;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Prazo Final</th>
           ${completo?`<th style="text-align:center;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Status</th>
-          <th style="text-align:left;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700">Último Coment. Quinzenal</th>`:''}
+          <th style="text-align:left;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700">Última Atualização</th>`:''}
         </tr>
       </thead>
       <tbody>
@@ -2235,7 +2235,7 @@ function renderRelPersonalizado(){
             ${completo?`<td style="padding:7px 10px;border:1px solid #E8DFC8;text-align:center">
               <span style="background:${cfg.bg};color:${cfg.color};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap">${cfg.label}</span>
             </td>
-            <td style="padding:7px 10px;border:1px solid #E8DFC8;color:#44403C;font-size:11px">${ultimoComent(o)}</td>`:''}
+            <td style="padding:7px 10px;border:1px solid #E8DFC8;color:#44403C;font-size:11px">${ultimaAtu(o)}</td>`:''}
           </tr>`;
         }).join('')}
         <tr style="background:#E8DFC8;font-weight:700">
