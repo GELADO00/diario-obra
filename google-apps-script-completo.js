@@ -5,6 +5,8 @@ const COLS_OBRAS = ['ID','NOME','OBJETO','FISCAL','FORNECEDOR','VALOR','INSTRUME
   'AVISOS','PENDENCIAS','ATUALIZACOES','COMENTARIOS_QUINZENAIS',
   'ADITIVO_DIAS','ADITIVO_VALOR','LINK_PASTA','VERSAO','VISTORIA_REALIZADA','VISTORIA_DATA','DATA_FINALIZACAO','ID_TERMO_RECEBIMENTO','EVENTOS'];
 const COLS_USERS = ['NOME','SENHA_HASH','PERFIL'];
+const SHEET_FORNECEDORES = "Fornecedores";
+const COLS_FORNECEDORES = ['ID','NOME','CNPJ','ENDERECO','CONTATO_NOME','CONTATO_TEL','CONTATO_EMAIL'];
 
 const APP_KEY = "3abeb74aceffdafb4ff157b193149c58cabc2a19173f5d7b4dfc94cec45ea39a";
 
@@ -21,7 +23,7 @@ function doGet(e) {
   const callback = e.parameter.callback;
 
   // Lock apenas para operações de escrita
-  const WRITE_ACTIONS = ['saveOne', 'deleteObra', 'marcarLido', 'marcarTodosLidos', 'criarAviso'];
+  const WRITE_ACTIONS = ['saveOne', 'deleteObra', 'marcarLido', 'marcarTodosLidos', 'criarAviso', 'saveFornecedor', 'deleteFornecedor'];
   const lock = WRITE_ACTIONS.indexOf(action) >= 0 ? LockService.getScriptLock() : null;
   if (lock) lock.tryLock(10000);
 
@@ -39,7 +41,10 @@ function doGet(e) {
       if      (action === "login")      result = login(ss, e.parameter.nome, e.parameter.senha);
       else if (action === "load")       result = loadObras(ss.getSheetByName(SHEET_OBRAS));
       else if (action === "saveOne")    result = saveOneObra(ss.getSheetByName(SHEET_OBRAS), JSON.parse(e.parameter.obra));
-      else if (action === "deleteObra") result = deleteObra(ss.getSheetByName(SHEET_OBRAS), e.parameter.id);
+      else if (action === "deleteObra")         result = deleteObra(ss.getSheetByName(SHEET_OBRAS), e.parameter.id);
+      else if (action === "loadFornecedores")   result = loadFornecedores(ss.getSheetByName(SHEET_FORNECEDORES));
+      else if (action === "saveFornecedor")     result = saveFornecedor(ss.getSheetByName(SHEET_FORNECEDORES), JSON.parse(e.parameter.fornecedor));
+      else if (action === "deleteFornecedor")   result = deleteFornecedor(ss.getSheetByName(SHEET_FORNECEDORES), e.parameter.id);
       else result = { error: "Ação inválida" };
     }
 
@@ -73,6 +78,7 @@ function getSpreadsheet() {
   }
 
   if (!ss.getSheetByName(SHEET_OBRAS)) ss.insertSheet(SHEET_OBRAS).appendRow(COLS_OBRAS);
+  if (!ss.getSheetByName(SHEET_FORNECEDORES)) ss.insertSheet(SHEET_FORNECEDORES).appendRow(COLS_FORNECEDORES);
   if (!ss.getSheetByName(SHEET_USERS)) {
     const s = ss.insertSheet(SHEET_USERS);
     s.appendRow(COLS_USERS);
@@ -178,6 +184,61 @@ function obraToRow(o) {
 
 function safeJson(val) {
   try { return val ? JSON.parse(val) : []; } catch(e) { return []; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORNECEDORES
+// ─────────────────────────────────────────────────────────────────────────────
+
+function loadFornecedores(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { success: true, fornecedores: [] };
+  const data = sheet.getRange(2, 1, lastRow - 1, COLS_FORNECEDORES.length).getValues();
+  const fornecedores = data.filter(r => r[0] !== '').map(r => ({
+    id:          String(r[0] || ''),
+    nome:        String(r[1] || ''),
+    cnpj:        String(r[2] || ''),
+    endereco:    String(r[3] || ''),
+    contatoNome: String(r[4] || ''),
+    contatoTel:  String(r[5] || ''),
+    contatoEmail:String(r[6] || ''),
+  }));
+  return { success: true, fornecedores };
+}
+
+function fornecedorToRow(f) {
+  return [
+    f.id,
+    f.nome        || '',
+    f.cnpj        || '',
+    f.endereco    || '',
+    f.contatoNome || '',
+    f.contatoTel  || '',
+    f.contatoEmail|| '',
+  ];
+}
+
+function saveFornecedor(sheet, f) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+    const idx = ids.findIndex(id => String(id) === String(f.id));
+    if (idx >= 0) {
+      sheet.getRange(idx + 2, 1, 1, COLS_FORNECEDORES.length).setValues([fornecedorToRow(f)]);
+      return { success: true };
+    }
+  }
+  sheet.appendRow(fornecedorToRow(f));
+  return { success: true };
+}
+
+function deleteFornecedor(sheet, id) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { success: false };
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+  const idx = ids.findIndex(i => String(i) === String(id));
+  if (idx >= 0) { sheet.deleteRow(idx + 2); return { success: true }; }
+  return { success: false, error: "Fornecedor não encontrado" };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
