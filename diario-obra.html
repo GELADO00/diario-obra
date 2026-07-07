@@ -211,6 +211,9 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
     <button onclick="verRelatorios()" class="menu-item" id="menu-relatorios">
       <span class="menu-icon">📊</span>Relatórios
     </button>
+    <button onclick="verFornecedores()" class="menu-item" id="menu-fornecedores">
+      <span class="menu-icon">🏢</span>Fornecedores
+    </button>
   </nav>
   <div class="menu-user-wrap">
     <div class="menu-user-avatar" id="menu-user-avatar">?</div>
@@ -255,6 +258,9 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
 
     <!-- RELATÓRIOS -->
     <div id="view-relatorios" style="display:none"></div>
+
+    <!-- FORNECEDORES -->
+    <div id="view-fornecedores" style="display:none"></div>
 
     <!-- CALENDÁRIO -->
     <div id="view-calendario" style="display:none;padding:20px">
@@ -560,6 +566,43 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
   </div>
 </div>
 
+<!-- MODAL FORNECEDOR -->
+<div class="modal-overlay" id="modal-fornecedor">
+  <div class="modal-box">
+    <h3 style="font-size:22px;margin-bottom:22px" id="modal-forn-titulo">Novo Fornecedor</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="grid-column:1/-1">
+        <label class="form-label">Nome da empresa *</label>
+        <input class="input" id="ff-nome" placeholder="Razão social">
+      </div>
+      <div>
+        <label class="form-label">CNPJ</label>
+        <input class="input" id="ff-cnpj" placeholder="00.000.000/0000-00" inputmode="numeric" oninput="this.value=formatarCNPJ(this.value)">
+      </div>
+      <div>
+        <label class="form-label">Telefone</label>
+        <input class="input" id="ff-tel" placeholder="(00) 00000-0000" inputmode="tel">
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="form-label">Endereço completo</label>
+        <input class="input" id="ff-end" placeholder="Rua, número, bairro, CEP, cidade, estado">
+      </div>
+      <div>
+        <label class="form-label">Nome do contato</label>
+        <input class="input" id="ff-contato" placeholder="Nome do responsável">
+      </div>
+      <div>
+        <label class="form-label">E-mail</label>
+        <input class="input" id="ff-email" type="email" placeholder="contato@empresa.com">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px">
+      <button class="btn btn-ghost" onclick="fecharModal('modal-fornecedor')">Cancelar</button>
+      <button class="btn btn-dark" onclick="salvarFornecedor()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import {
   uid, hoje, toInputDate, fmtDate, calcPrazoFinal, diasR, safeArr,
@@ -601,14 +644,14 @@ function navegarVisaoGeral(){
 }
 
 function setMenuAtivo(id){
-  ['visaogeral','calendario','avisos','relatorios'].forEach(mid=>{
+  ['visaogeral','calendario','avisos','relatorios','fornecedores'].forEach(mid=>{
     const btn = document.getElementById('menu-'+mid);
     if(btn) btn.classList.toggle('active', mid===id);
   });
 }
 
 function mostrarView(v){
-  ["lista","detalhe","calendario","avisos","relatorios"].forEach(id=>{
+  ["lista","detalhe","calendario","avisos","relatorios","fornecedores"].forEach(id=>{
     const el = document.getElementById("view-"+id);
     if(el) el.style.display="none";
   });
@@ -617,6 +660,7 @@ function mostrarView(v){
   if(el) el.style.display="";
   if(v==="lista") renderLista();
   if(v==="calendario") setTimeout(renderCalendario, 50);
+  if(v==="fornecedores") renderViewFornecedores();
 }
 
 function navegarComFiltro(status){
@@ -667,6 +711,8 @@ let debTimer = null;
 let editandoId = null;
 let usuarioAtual = null; // {nome, perfil}
 let avisos = [];
+let fornecedores = [];
+let editandoFornecedorId = null;
 
 // ── UTILS ──────────────────────────────────────────────────────────────
 // uid, hoje, toInputDate, fmtDate, calcPrazoFinal, diasR, safeArr,
@@ -852,6 +898,7 @@ async function carregar(){
     hideLoading();
     renderLista();
     loadAvisos().then(()=>mostrarPopupAvisos());
+    loadFornecedores();
   }
 }
 
@@ -2264,6 +2311,137 @@ function imprimirRelPersonalizado(){
   setTimeout(()=>w.print(),500);
 }
 
+// ── FORNECEDORES ──────────────────────────────────────────────────────────────
+
+async function loadFornecedores(){
+  try{
+    const r = await chamarAPI({action:'loadFornecedores'});
+    if(r && r.fornecedores) fornecedores = r.fornecedores;
+  }catch(e){}
+}
+
+function verFornecedores(){
+  setMenuAtivo('fornecedores');
+  toggleMenu();
+  setTimeout(()=>mostrarView('fornecedores'), 300);
+}
+
+function formatarCNPJ(v){
+  const d=v.replace(/\D/g,'').slice(0,14);
+  if(d.length<=2) return d;
+  if(d.length<=5) return d.slice(0,2)+'.'+d.slice(2);
+  if(d.length<=8) return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5);
+  if(d.length<=12) return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5,8)+'/'+d.slice(8);
+  return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5,8)+'/'+d.slice(8,12)+'-'+d.slice(12);
+}
+
+function renderViewFornecedores(){
+  const v=document.getElementById('view-fornecedores');
+  if(!v) return;
+  v.innerHTML=`<div style="max-width:1100px;margin:0 auto;padding:32px 24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+      <h2 style="font-family:'Playfair Display',serif;font-size:24px">🏢 Fornecedores</h2>
+      ${!isGestor()?`<button class="btn btn-dark" onclick="abrirModalFornecedor(null)">+ Novo Fornecedor</button>`:''}
+    </div>
+    <div id="forn-lista"></div>
+  </div>`;
+  renderListaFornecedores();
+}
+
+function renderListaFornecedores(){
+  const el=document.getElementById('forn-lista');
+  if(!el) return;
+  if(!fornecedores.length){
+    el.innerHTML=`<div class="card" style="padding:48px;text-align:center;color:var(--muted);font-style:italic">Nenhum fornecedor cadastrado.</div>`;
+    return;
+  }
+  el.innerHTML=`<div class="card" style="padding:0;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:var(--paper2)">
+          <th style="text-align:left;padding:12px 16px;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border2)">Empresa</th>
+          <th style="text-align:left;padding:12px 16px;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border2)">CNPJ</th>
+          <th style="text-align:left;padding:12px 16px;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border2)">Endereço</th>
+          <th style="text-align:left;padding:12px 16px;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border2)">Contato</th>
+          <th style="text-align:left;padding:12px 16px;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border2)">Telefone</th>
+          <th style="text-align:left;padding:12px 16px;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border2)">E-mail</th>
+          ${!isGestor()?`<th style="padding:12px 16px;border-bottom:1px solid var(--border2)"></th>`:''}
+        </tr>
+      </thead>
+      <tbody>
+        ${fornecedores.map((f,i)=>`<tr style="border-bottom:1px solid var(--border2);background:${i%2===0?'var(--paper)':'var(--paper2)'}">
+          <td style="padding:12px 16px;font-weight:600;color:var(--ink)">${f.nome||'—'}</td>
+          <td style="padding:12px 16px;color:var(--muted);font-size:12px">${f.cnpj||'—'}</td>
+          <td style="padding:12px 16px;color:var(--muted);font-size:12px;max-width:200px">${f.endereco||'—'}</td>
+          <td style="padding:12px 16px;color:var(--muted)">${f.contatoNome||'—'}</td>
+          <td style="padding:12px 16px;color:var(--muted)">${f.contatoTel||'—'}</td>
+          <td style="padding:12px 16px;color:var(--muted)">${f.contatoEmail?`<a href="mailto:${f.contatoEmail}" style="color:var(--blue)">${f.contatoEmail}</a>`:'—'}</td>
+          ${!isGestor()?`<td style="padding:8px 12px;white-space:nowrap">
+            <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="abrirModalFornecedor('${f.id}')">✏️</button>
+            <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;color:#EF4444" onclick="deletarFornecedor('${f.id}')">🗑️</button>
+          </td>`:''}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function abrirModalFornecedor(id){
+  editandoFornecedorId = id;
+  const f = id ? fornecedores.find(x=>String(x.id)===String(id)) : null;
+  document.getElementById('modal-forn-titulo').textContent = f ? 'Editar Fornecedor' : 'Novo Fornecedor';
+  document.getElementById('ff-nome').value   = f?.nome||'';
+  document.getElementById('ff-cnpj').value   = f?.cnpj||'';
+  document.getElementById('ff-end').value    = f?.endereco||'';
+  document.getElementById('ff-contato').value= f?.contatoNome||'';
+  document.getElementById('ff-tel').value    = f?.contatoTel||'';
+  document.getElementById('ff-email').value  = f?.contatoEmail||'';
+  abrirModal('modal-fornecedor');
+}
+
+async function salvarFornecedor(){
+  const nome=document.getElementById('ff-nome').value.trim();
+  if(!nome){ alert('Preencha o nome da empresa.'); return; }
+  const f={
+    id:   editandoFornecedorId || uid(),
+    nome,
+    cnpj:        document.getElementById('ff-cnpj').value.trim(),
+    endereco:    document.getElementById('ff-end').value.trim(),
+    contatoNome: document.getElementById('ff-contato').value.trim(),
+    contatoTel:  document.getElementById('ff-tel').value.trim(),
+    contatoEmail:document.getElementById('ff-email').value.trim(),
+  };
+  try{
+    const r=await chamarAPI({action:'saveFornecedor', fornecedor:JSON.stringify(f)}, 1);
+    if(r && r.success){
+      if(editandoFornecedorId){
+        fornecedores=fornecedores.map(x=>String(x.id)===String(f.id)?f:x);
+      } else {
+        fornecedores=[...fornecedores, f];
+      }
+      fecharModal('modal-fornecedor');
+      renderListaFornecedores();
+      showToast('✅ Fornecedor salvo!');
+    } else {
+      showToast('⚠️ Erro ao salvar: '+(r&&r.error||'resposta inválida'), true);
+    }
+  }catch(e){ showToast('⚠️ Erro ao salvar. Verifique sua conexão.', true); }
+}
+
+async function deletarFornecedor(id){
+  if(!confirm('Excluir este fornecedor?')) return;
+  try{
+    const r=await chamarAPI({action:'deleteFornecedor', id:String(id)}, 1);
+    if(r && r.success){
+      fornecedores=fornecedores.filter(x=>String(x.id)!==String(id));
+      renderListaFornecedores();
+      showToast('✅ Fornecedor excluído!');
+    } else {
+      showToast('⚠️ Erro ao excluir.', true);
+    }
+  }catch(e){ showToast('⚠️ Erro ao excluir. Verifique sua conexão.', true); }
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Expõe as funções chamadas por atributos onclick/onchange no HTML.
 // Necessário porque <script type="module"> tem escopo próprio.
@@ -2288,6 +2466,8 @@ Object.assign(window, {
   editarEventoAtual, excluirEventoAtual, excluirEventoObra, addPeriodo,
   gerarRelatorio, imprimirRelatorio,
   formatarMoedaInput,
+  verFornecedores, renderViewFornecedores, renderListaFornecedores,
+  abrirModalFornecedor, salvarFornecedor, deletarFornecedor, formatarCNPJ,
 });
 
 carregar();
