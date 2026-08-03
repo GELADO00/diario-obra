@@ -253,6 +253,13 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
   </header>
 
   <main>
+    <!-- BANNER DADOS DESATUALIZADOS (cache local) -->
+    <div id="banner-offline" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;background:#FEF3C7;border-bottom:1px solid #F59E0B;color:#92400E;padding:10px 20px;font-size:13px;font-weight:600">
+      <span style="font-size:16px">⚠️</span>
+      <span id="banner-offline-txt" style="flex:1;min-width:200px"></span>
+      <button class="btn btn-ghost" style="font-size:12px;white-space:nowrap" onclick="carregar()">🔄 Tentar novamente</button>
+    </div>
+
     <!-- AVISOS -->
     <div id="view-avisos" style="display:none"></div>
 
@@ -713,6 +720,9 @@ let usuarioAtual = null; // {nome, perfil}
 let avisos = [];
 let fornecedores = [];
 let editandoFornecedorId = null;
+// true quando as obras em tela vieram do cache local (servidor indisponível).
+// Enquanto true, gravações são bloqueadas para não sobrescrever dados mais novos.
+let dadosDeCache = false;
 
 // ── UTILS ──────────────────────────────────────────────────────────────
 // uid, hoje, toInputDate, fmtDate, calcPrazoFinal, diasR, safeArr,
@@ -771,6 +781,45 @@ function showToast(msg,erro=false){
   clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),3000);
 }
 
+// ── CACHE LOCAL / SESSÃO ───────────────────────────────────────────────
+const CACHE_KEY  = 'diario_obras_cache';
+const SESSAO_KEY = 'diario_sessao';
+
+function salvarCache(lista){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({obras:lista, ts:new Date().toISOString()})); }catch(e){}
+}
+function lerCache(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY));
+    return (c && Array.isArray(c.obras)) ? c : null;
+  }catch(e){ return null; }
+}
+function limparCache(){
+  try{ localStorage.removeItem(CACHE_KEY); }catch(e){}
+}
+
+function mostrarBannerCache(ts){
+  const el=document.getElementById('banner-offline');
+  if(!el) return;
+  const quando = ts ? new Date(ts).toLocaleString('pt-BR') : 'data desconhecida';
+  const txt=document.getElementById('banner-offline-txt');
+  if(txt) txt.textContent=`Sem conexão com o servidor. Exibindo dados salvos em ${quando}. Edições estão bloqueadas.`;
+  el.style.display='flex';
+}
+function esconderBannerCache(){
+  const el=document.getElementById('banner-offline');
+  if(el) el.style.display='none';
+}
+
+// Bloqueia gravações enquanto a tela exibe dados de cache (possivelmente desatualizados).
+function bloqueadoPorCache(){
+  if(dadosDeCache){
+    showToast("⚠️ Sem conexão. Recarregue antes de editar.", true);
+    return true;
+  }
+  return false;
+}
+
 // ── API JSONP ──────────────────────────────────────────────────────────
 function chamarAPIUma(params){
   return new Promise((resolve,reject)=>{
@@ -782,7 +831,7 @@ function chamarAPIUma(params){
     url.searchParams.set("appKey",APP_KEY);
     url.searchParams.set("callback",cb);
     const script=document.createElement("script");
-    const timer=setTimeout(()=>{cleanup();reject(new Error("Timeout"));},30000);
+    const timer=setTimeout(()=>{cleanup();reject(new Error("Timeout"));},15000);
     function cleanup(){clearTimeout(timer);try{delete window[cb];}catch(_){}if(script.parentNode)script.parentNode.removeChild(script);}
     window[cb]=function(data){cleanup();resolve(data);};
     script.onerror=()=>{cleanup();reject(new Error("Erro de rede"));};
@@ -811,20 +860,10 @@ async function fazerLogin(){
   showLoading("Verificando...");
   try{
     const senhaHash = await sha256(senha);
-    const r=await chamarAPI({action:"login",nome,senha:senhaHash});
+    const r=await chamarAPI({action:"login",nome,senha:senhaHash}, 2);
     if(r&&r.success){
-      usuarioAtual={nome:r.nome,perfil:r.perfil};
-      document.getElementById("login-screen").style.display="none";
-      document.getElementById("app").style.display="block";
-      document.getElementById("user-nome-header").textContent="Olá, "+r.nome;
-      document.getElementById("user-perfil-header").textContent=r.perfil;
-      const avatarEl=document.getElementById('menu-user-avatar');
-      if(avatarEl) avatarEl.textContent=(r.nome||'?')[0].toUpperCase();
-      const nameEl=document.getElementById('menu-user-name-sidebar');
-      if(nameEl) nameEl.textContent=r.nome;
-      const roleEl=document.getElementById('menu-user-role-sidebar');
-      if(roleEl) roleEl.textContent=r.perfil;
-      setMenuAtivo('visaogeral');
+      aplicarSessao({nome:r.nome, perfil:r.perfil});
+      try{ sessionStorage.setItem(SESSAO_KEY, JSON.stringify(usuarioAtual)); }catch(e){}
       await carregar();
     } else {
       mostrarErroLogin(r&&r.error?r.error:"Usuário ou senha incorretos.");
@@ -835,12 +874,32 @@ async function fazerLogin(){
     hideLoading();
   }
 }
+// Coloca o app na tela para um usuário autenticado. Usado tanto pelo login
+// quanto pela restauração de sessão após um refresh.
+function aplicarSessao(u){
+  usuarioAtual={nome:u.nome, perfil:u.perfil};
+  document.getElementById("login-screen").style.display="none";
+  document.getElementById("app").style.display="block";
+  document.getElementById("user-nome-header").textContent="Olá, "+u.nome;
+  document.getElementById("user-perfil-header").textContent=u.perfil;
+  const avatarEl=document.getElementById('menu-user-avatar');
+  if(avatarEl) avatarEl.textContent=(u.nome||'?')[0].toUpperCase();
+  const nameEl=document.getElementById('menu-user-name-sidebar');
+  if(nameEl) nameEl.textContent=u.nome;
+  const roleEl=document.getElementById('menu-user-role-sidebar');
+  if(roleEl) roleEl.textContent=u.perfil;
+  setMenuAtivo('visaogeral');
+}
+
 function mostrarErroLogin(msg){
   const el=document.getElementById("login-error");
   el.textContent=msg; el.style.display="block";
 }
 function logout(){
-  usuarioAtual=null; obras=[];
+  usuarioAtual=null; obras=[]; dadosDeCache=false;
+  try{ sessionStorage.removeItem(SESSAO_KEY); }catch(e){}
+  limparCache();
+  esconderBannerCache();
   document.getElementById("app").style.display="none";
   document.getElementById("login-screen").style.display="flex";
   document.getElementById("login-user").value="";
@@ -849,10 +908,27 @@ function logout(){
 }
 
 // ── CARREGAR ───────────────────────────────────────────────────────────
+// Aplica o fallback de cache quando o servidor não respondeu ou devolveu algo inválido.
+// Nunca zera `obras` silenciosamente: ou mostra o último snapshot conhecido, ou avisa o erro.
+function usarCacheOuVazio(motivo){
+  const cache=lerCache();
+  if(cache){
+    obras=cache.obras;
+    dadosDeCache=true;
+    mostrarBannerCache(cache.ts);
+    showToast("⚠️ Sem conexão. Exibindo dados salvos.", true);
+  } else {
+    obras=[];
+    dadosDeCache=false;
+    esconderBannerCache();
+    showToast("⚠️ Erro ao carregar: "+motivo, true);
+  }
+}
+
 async function carregar(){
   showLoading("Carregando obras...");
   try{
-    const r=await chamarAPI({action:"load"});
+    const r=await chamarAPI({action:"load"}, 2);
     if(r&&r.obras&&r.obras.length>0){
       obras=r.obras.map(o=>({
         id:Number(o.id)||o.id,
@@ -884,16 +960,26 @@ async function carregar(){
         vistoriaRealizada:Boolean(o.vistoriaRealizada)||false,
         vistoriaData:String(o.vistoriaData||''),
       }));
+      dadosDeCache=false;
+      esconderBannerCache();
+      salvarCache(obras);
       popularFiltros();
       const btnNova = document.getElementById('btn-nova-obra');
       if(btnNova) btnNova.style.display = isGestor() ? 'none' : '';
       showToast("✅ "+obras.length+" obras carregadas!");
-    } else {
+    } else if(r && Array.isArray(r.obras)){
+      // Resposta válida, porém sem nenhuma obra cadastrada — estado legítimo.
       obras=[];
+      dadosDeCache=false;
+      esconderBannerCache();
+      salvarCache(obras);
+      popularFiltros();
+    } else {
+      // Resposta ausente ou malformada (ex.: página de erro do Google) — trata como falha.
+      usarCacheOuVazio((r && r.error) || "resposta inválida do servidor");
     }
   }catch(e){
-    obras=[];
-    showToast("⚠️ Erro ao carregar: "+e.message,true);
+    usarCacheOuVazio(e.message);
   }finally{
     hideLoading();
     renderLista();
@@ -904,6 +990,7 @@ async function carregar(){
 
 // ── SALVAR / DELETAR ───────────────────────────────────────────────────
 async function salvarUma(id, _force=false){
+  if(bloqueadoPorCache()) return;
   const o=obras.find(x=>x.id===id); if(!o) return;
   try{
     // Saves: 1 attempt only to avoid double-write on slow network
@@ -930,6 +1017,7 @@ function debSalvar(id){ clearTimeout(debTimer); debTimer=setTimeout(()=>salvarUm
 
 async function apagarObra(id){
   if(!isAdmin()){showToast("⚠️ Sem permissão para apagar.",true);return;}
+  if(bloqueadoPorCache()) return;
   if(!confirm("Apagar esta obra permanentemente?")) return;
   showLoading("Apagando...");
   try{
@@ -2400,6 +2488,7 @@ function abrirModalFornecedor(id){
 }
 
 async function salvarFornecedor(){
+  if(bloqueadoPorCache()) return;
   const nome=document.getElementById('ff-nome').value.trim();
   if(!nome){ alert('Preencha o nome da empresa.'); return; }
   const f={
@@ -2429,6 +2518,7 @@ async function salvarFornecedor(){
 }
 
 async function deletarFornecedor(id){
+  if(bloqueadoPorCache()) return;
   if(!confirm('Excluir este fornecedor?')) return;
   try{
     const r=await chamarAPI({action:'deleteFornecedor', id:String(id)}, 1);
@@ -2468,9 +2558,20 @@ Object.assign(window, {
   formatarMoedaInput,
   verFornecedores, renderViewFornecedores, renderListaFornecedores,
   abrirModalFornecedor, salvarFornecedor, deletarFornecedor, formatarCNPJ,
+  carregar,
 });
 
-carregar();
+// Ponto de entrada. NÃO chama carregar() aqui sem sessão: fazer isso subia o
+// overlay "Carregando obras..." por cima da tela de senha e travava o login
+// enquanto o Apps Script estivesse lento.
+(function iniciar(){
+  let sessao=null;
+  try{ sessao=JSON.parse(sessionStorage.getItem(SESSAO_KEY)); }catch(e){}
+  if(sessao && sessao.nome && sessao.perfil){
+    aplicarSessao(sessao);
+    carregar();
+  }
+})();
 </script>
 
 <!-- MODAL AVISOS POPUP (auto-show on login) -->
