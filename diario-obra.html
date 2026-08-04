@@ -2334,6 +2334,10 @@ function renderRelPersonalizado(){
     return ats.length ? ats[0].texto : '—';
   };
 
+  // Links salvos sem esquema ("drive.google.com/...") viram link relativo e quebram.
+  // Prefixar https:// também neutraliza esquemas indesejados (javascript:, data:).
+  const urlPasta = u => /^https?:\/\//i.test(u) ? u : 'https://' + String(u).replace(/^\/+/, '');
+
   let html=`<div style="font-family:'Source Sans 3',sans-serif;color:#1C1917">
     <div style="text-align:center;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #E8DFC8">
       <p style="font-size:11px;color:#78716C;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Banco do Nordeste</p>
@@ -2354,7 +2358,8 @@ function renderRelPersonalizado(){
           <th style="text-align:right;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Valor (R$)</th>
           <th style="text-align:center;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Prazo Final</th>
           ${completo?`<th style="text-align:center;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Status</th>
-          <th style="text-align:left;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700">Última Atualização</th>`:''}
+          <th style="text-align:left;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700">Última Atualização</th>
+          <th style="text-align:center;padding:8px 10px;border:1px solid #E8DFC8;font-weight:700;white-space:nowrap">Pasta</th>`:''}
         </tr>
       </thead>
       <tbody>
@@ -2370,13 +2375,13 @@ function renderRelPersonalizado(){
             ${completo?`<td style="padding:7px 10px;border:1px solid #E8DFC8;text-align:center">
               <span style="background:${cfg.bg};color:${cfg.color};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap">${cfg.label}</span>
             </td>
-            <td style="padding:7px 10px;border:1px solid #E8DFC8;color:#44403C;font-size:11px">${ultimaAtu(o)}</td>`:''}
+            <td style="padding:7px 10px;border:1px solid #E8DFC8;color:#44403C;font-size:11px">${ultimaAtu(o)}</td>
+            <td style="padding:7px 10px;border:1px solid #E8DFC8;text-align:center;white-space:nowrap">${o.linkPasta?`<a href="${urlPasta(o.linkPasta)}" target="_blank" rel="noopener" style="color:#1D4ED8;font-size:11px;font-weight:600;text-decoration:underline">📁 Abrir</a>`:'<span style="color:#A8A29E">—</span>'}</td>`:''}
           </tr>`;
         }).join('')}
         <tr style="background:#E8DFC8;font-weight:700">
-          <td colspan="${completo?7:5}" style="padding:7px 10px;border:1px solid #D4C9B0">Total</td>
+          <td colspan="${completo?8:5}" style="padding:7px 10px;border:1px solid #D4C9B0">Total</td>
           <td style="padding:7px 10px;border:1px solid #D4C9B0;text-align:center">${fil.length} obra${fil.length!==1?'s':''}</td>
-          ${completo?`<td colspan="1" style="padding:7px 10px;border:1px solid #D4C9B0"></td>`:''}
         </tr>
       </tbody>
     </table>`;
