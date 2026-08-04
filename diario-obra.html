@@ -831,7 +831,10 @@ function chamarAPIUma(params){
     url.searchParams.set("appKey",APP_KEY);
     url.searchParams.set("callback",cb);
     const script=document.createElement("script");
-    const timer=setTimeout(()=>{cleanup();reject(new Error("Timeout"));},15000);
+    // 25s: um 404/erro HTTP dispara `onerror` na hora, independente deste timeout.
+    // Ele só limita requisições lentas porém válidas (cold start do Apps Script
+    // costuma passar de 15s), que antes eram abortadas cedo demais.
+    const timer=setTimeout(()=>{cleanup();reject(new Error("Timeout"));},25000);
     function cleanup(){clearTimeout(timer);try{delete window[cb];}catch(_){}if(script.parentNode)script.parentNode.removeChild(script);}
     window[cb]=function(data){cleanup();resolve(data);};
     script.onerror=()=>{cleanup();reject(new Error("Erro de rede"));};
@@ -840,16 +843,24 @@ function chamarAPIUma(params){
   });
 }
 
-async function chamarAPI(params, tentativas=3){
+// Falhas do Apps Script são transitórias: insistir com backoff resolve a maioria.
+// `onTentativa(n, total)` recebe o número da próxima tentativa, para dar feedback
+// ao usuário em vez de deixá-lo achar que travou e atualizar a página na mão.
+async function chamarAPI(params, tentativas=3, onTentativa=null){
+  let ultimoErro;
   for(let i=0;i<tentativas;i++){
     try{
       return await chamarAPIUma(params);
     } catch(e){
-      const ultima = i===tentativas-1;
-      if(ultima) throw e;
-      await new Promise(r=>setTimeout(r,(i+1)*2000));
+      ultimoErro=e;
+      if(i===tentativas-1) break;
+      // Jitter evita que a equipe inteira repita em sincronia no mesmo deployment.
+      const espera = Math.min(1000*Math.pow(2,i), 8000) + Math.random()*500;
+      if(onTentativa) onTentativa(i+2, tentativas);
+      await new Promise(r=>setTimeout(r,espera));
     }
   }
+  throw ultimoErro;
 }
 
 // ── LOGIN ──────────────────────────────────────────────────────────────
@@ -858,21 +869,27 @@ async function fazerLogin(){
   const senha=document.getElementById("login-pass").value.trim();
   if(!nome||!senha){mostrarErroLogin("Preencha usuário e senha.");return;}
   showLoading("Verificando...");
+  let autenticou=false;
   try{
     const senhaHash = await sha256(senha);
-    const r=await chamarAPI({action:"login",nome,senha:senhaHash}, 2);
+    const r=await chamarAPI({action:"login",nome,senha:senhaHash}, 5,
+      (n,t)=>showLoading(`Servidor instável — tentando novamente (${n}/${t})...`));
     if(r&&r.success){
       aplicarSessao({nome:r.nome, perfil:r.perfil});
       try{ sessionStorage.setItem(SESSAO_KEY, JSON.stringify(usuarioAtual)); }catch(e){}
-      await carregar();
+      autenticou=true;
     } else {
       mostrarErroLogin(r&&r.error?r.error:"Usuário ou senha incorretos.");
     }
   }catch(e){
-    mostrarErroLogin("Erro ao conectar. Tente novamente.");
+    mostrarErroLogin("Não foi possível falar com o servidor. Costuma ser temporário — tente de novo em alguns instantes.");
   }finally{
     hideLoading();
   }
+  // Fora do try: carregar() trata os próprios erros (banner + cache). Estando
+  // aqui dentro, uma falha de CARREGAMENTO era reportada como erro de LOGIN,
+  // escrita num #login-error que aplicarSessao() já tinha escondido.
+  if(autenticou) await carregar();
 }
 // Coloca o app na tela para um usuário autenticado. Usado tanto pelo login
 // quanto pela restauração de sessão após um refresh.
@@ -928,7 +945,8 @@ function usarCacheOuVazio(motivo){
 async function carregar(){
   showLoading("Carregando obras...");
   try{
-    const r=await chamarAPI({action:"load"}, 2);
+    const r=await chamarAPI({action:"load"}, 4,
+      (n,t)=>showLoading(`Servidor instável — tentando novamente (${n}/${t})...`));
     if(r&&r.obras&&r.obras.length>0){
       obras=r.obras.map(o=>({
         id:Number(o.id)||o.id,
