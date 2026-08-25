@@ -8,6 +8,7 @@ import {
   isAdmin,
   isGestor,
   isTecnico,
+  isLeitor,
   podeEditar,
   quinzenaAtual,
   quinzenaLabel,
@@ -343,13 +344,45 @@ describe("isTecnico", () => {
   });
 });
 
+describe("isLeitor", () => {
+  it("returns false for null or undefined", () => {
+    expect(isLeitor(null)).toBe(false);
+    expect(isLeitor(undefined)).toBe(false);
+  });
+
+  it("returns true when perfil is LEITOR (case-insensitive)", () => {
+    expect(isLeitor({ perfil: "LEITOR" })).toBe(true);
+    expect(isLeitor({ perfil: "leitor" })).toBe(true);
+    expect(isLeitor({ perfil: "Leitor" })).toBe(true);
+  });
+
+  it("returns false for other profiles", () => {
+    expect(isLeitor({ perfil: "ADM" })).toBe(false);
+    expect(isLeitor({ perfil: "GESTOR" })).toBe(false);
+    expect(isLeitor({ perfil: "TECNICO" })).toBe(false);
+    expect(isLeitor({ perfil: "" })).toBe(false);
+  });
+});
+
 describe("podeEditar", () => {
   it("returns false for GESTOR (read-only role)", () => {
     expect(podeEditar({ perfil: "GESTOR" })).toBe(false);
+    expect(podeEditar({ perfil: "gestor" })).toBe(false);
+    expect(podeEditar({ perfil: "Gestor" })).toBe(false);
   });
 
-  it("returns true for ADM and any other role", () => {
+  it("returns false for LEITOR (read-only role)", () => {
+    expect(podeEditar({ perfil: "LEITOR" })).toBe(false);
+    expect(podeEditar({ perfil: "leitor" })).toBe(false);
+    expect(podeEditar({ perfil: "Leitor" })).toBe(false);
+  });
+
+  it("returns true for ADM and TECNICO", () => {
     expect(podeEditar({ perfil: "ADM" })).toBe(true);
+    expect(podeEditar({ perfil: "TECNICO" })).toBe(true);
+  });
+
+  it("returns true for unknown roles and null", () => {
     expect(podeEditar({ perfil: "USER" })).toBe(true);
     expect(podeEditar(null)).toBe(true);
   });
