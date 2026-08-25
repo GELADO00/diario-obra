@@ -163,8 +163,23 @@ export function isTecnico(usuario) {
 }
 
 /** @param {{ perfil: string }|null} usuario */
+export function isLeitor(usuario) {
+  return usuario != null && String(usuario.perfil).toUpperCase() === "LEITOR";
+}
+
+/**
+ * Perfis que só visualizam. Lista explícita de propósito: `podeEditar` era
+ * `!isGestor(...)`, uma lista negra, então qualquer perfil novo ganhava direito
+ * de edição por omissão. Perfil novo somente-leitura entra aqui.
+ */
+const PERFIS_SOMENTE_LEITURA = ["GESTOR", "LEITOR"];
+
+/** @param {{ perfil: string }|null} usuario */
 export function podeEditar(usuario) {
-  return !isGestor(usuario);
+  // `null` segue retornando true (comportamento preexistente). Nada é renderizado
+  // antes do login, então na prática não é alcançável.
+  if (usuario == null) return true;
+  return !PERFIS_SOMENTE_LEITURA.includes(String(usuario.perfil).toUpperCase());
 }
 
 /**
