@@ -183,6 +183,17 @@ export function podeEditar(usuario) {
 }
 
 /**
+ * Quem pode ver/gerar relatórios. Eixo diferente de `podeEditar`: GESTOR não
+ * edita mas mantém acesso a relatórios; só LEITOR perde esse acesso. Por isso
+ * não reaproveita PERFIS_SOMENTE_LEITURA.
+ *
+ * @param {{ perfil: string }|null} usuario
+ */
+export function podeVerRelatorios(usuario) {
+  return !isLeitor(usuario);
+}
+
+/**
  * Returns the key for the current fortnightly period: "YYYY-MM-15" for the
  * first half, or "YYYY-MM-<last-day>" for the second half.
  *

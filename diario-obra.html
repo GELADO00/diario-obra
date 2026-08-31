@@ -355,7 +355,7 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
           Sem retorno semanal
         </label>
         <div style="display:flex;gap:8px;margin-left:auto">
-          <button class="btn btn-ghost" onclick="gerarRelatorio()" style="border-color:var(--gold);color:var(--gold)">📊 Relatório</button>
+          <button class="btn btn-ghost" id="btn-relatorio-lista" onclick="gerarRelatorio()" style="border-color:var(--gold);color:var(--gold)">📊 Relatório</button>
           <button class="btn btn-amber" id="btn-nova-obra" onclick="abrirModalNovaObra()" style="display:none">+ Nova Obra</button>
         </div>
       </div>
@@ -614,7 +614,7 @@ input[type=range]{width:100%;accent-color:var(--amber);margin-top:8px;cursor:poi
 import {
   uid, hoje, toInputDate, fmtDate, calcPrazoFinal, diasR, safeArr,
   isAdmin as _isAdmin, isGestor as _isGestor, isTecnico as _isTecnico,
-  isLeitor as _isLeitor, podeEditar as _podeEditar,
+  isLeitor as _isLeitor, podeEditar as _podeEditar, podeVerRelatorios as _podeVerRelatorios,
   quinzenaAtual, quinzenaLabel, temComentarioQuinzena, temRetornoSemanal,
   parseValorBR, formatarMoeda, formatarMoedaInput,
 } from './src/utils.js';
@@ -659,6 +659,12 @@ function setMenuAtivo(id){
 }
 
 function mostrarView(v){
+  // Bloqueia os dois atalhos de relatório: a view normal ("relatorios") e o
+  // especial ("relatorio", singular) que pula direto para imprimirRelatorio().
+  if((v==="relatorios"||v==="relatorio") && !podeVerRelatorios()){
+    showToast("⚠️ Seu perfil não tem acesso a relatórios.", true);
+    return;
+  }
   ["lista","detalhe","calendario","avisos","relatorios","fornecedores"].forEach(id=>{
     const el = document.getElementById("view-"+id);
     if(el) el.style.display="none";
@@ -769,6 +775,7 @@ function confirmarFinalizacao(){
   showToast("✅ Obra finalizada! Termo GED: "+termoGed);
 }
 function podeEditar() { return _podeEditar(usuarioAtual); }
+function podeVerRelatorios() { return _podeVerRelatorios(usuarioAtual); }
 
 // ── LOADING / TOAST ────────────────────────────────────────────────────
 function showLoading(txt="Carregando..."){
@@ -952,6 +959,14 @@ function aplicarPermissoesUI(){
   ['btn-nova-obra','btn-novo-evento'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.style.display=mostrar;
+  });
+
+  // Eixo separado do de edição: GESTOR não edita mas mantém acesso a
+  // relatórios, só LEITOR perde esse acesso.
+  const mostrarRel = podeVerRelatorios() ? '' : 'none';
+  ['menu-relatorios','btn-relatorio-lista'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=mostrarRel;
   });
 }
 
@@ -1872,6 +1887,7 @@ function excluirEventoObra(obraId, evId){
 
 // ── RELATÓRIO ──────────────────────────────────────────────────────────────────
 function gerarRelatorio(){
+  if(!podeVerRelatorios()){ showToast("⚠️ Seu perfil não tem acesso a relatórios.", true); return; }
   const hoje = new Date();
   const dia = hoje.getDate();
   const quinzena = dia <= 15 ? "1ª Quinzena" : "2ª Quinzena";
@@ -2072,6 +2088,7 @@ function gerarRelatorio(){
 }
 
 function imprimirRelatorio(){
+  if(!podeVerRelatorios()){ showToast("⚠️ Seu perfil não tem acesso a relatórios.", true); return; }
   const conteudo=document.getElementById("relatorio-print").innerHTML;
   const janela=window.open('','_blank');
   janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Quinzenal</title>
@@ -2270,6 +2287,7 @@ async function enviarAvisoAdm(){
 
 // ── RELATÓRIO PERSONALIZADO ───────────────────────────────────────────────────
 function verRelatorios(){
+  if(!podeVerRelatorios()){ showToast("⚠️ Seu perfil não tem acesso a relatórios.", true); return; }
   setMenuAtivo('relatorios');
   toggleMenu();
   ['lista','detalhe','calendario','avisos'].forEach(id=>{
@@ -2458,6 +2476,7 @@ function renderRelPersonalizado(){
 }
 
 function imprimirRelPersonalizado(){
+  if(!podeVerRelatorios()){ showToast("⚠️ Seu perfil não tem acesso a relatórios.", true); return; }
   const conteudo=document.getElementById('rp-print').innerHTML;
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Personalizado</title>
