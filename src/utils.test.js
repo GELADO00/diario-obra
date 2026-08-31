@@ -10,6 +10,7 @@ import {
   isTecnico,
   isLeitor,
   podeEditar,
+  podeVerRelatorios,
   quinzenaAtual,
   quinzenaLabel,
   temComentarioQuinzena,
@@ -385,6 +386,28 @@ describe("podeEditar", () => {
   it("returns true for unknown roles and null", () => {
     expect(podeEditar({ perfil: "USER" })).toBe(true);
     expect(podeEditar(null)).toBe(true);
+  });
+});
+
+describe("podeVerRelatorios", () => {
+  it("returns false for LEITOR (case-insensitive)", () => {
+    expect(podeVerRelatorios({ perfil: "LEITOR" })).toBe(false);
+    expect(podeVerRelatorios({ perfil: "leitor" })).toBe(false);
+    expect(podeVerRelatorios({ perfil: "Leitor" })).toBe(false);
+  });
+
+  it("returns true for GESTOR — different axis from podeEditar", () => {
+    expect(podeVerRelatorios({ perfil: "GESTOR" })).toBe(true);
+  });
+
+  it("returns true for ADM and TECNICO", () => {
+    expect(podeVerRelatorios({ perfil: "ADM" })).toBe(true);
+    expect(podeVerRelatorios({ perfil: "TECNICO" })).toBe(true);
+  });
+
+  it("returns true for unknown roles and null", () => {
+    expect(podeVerRelatorios({ perfil: "USER" })).toBe(true);
+    expect(podeVerRelatorios(null)).toBe(true);
   });
 });
 
